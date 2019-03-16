@@ -79,15 +79,15 @@ class NamesMapping(object):
             for row in file.read().split('\n'):
 
                 # prefer ":" if present as delimiter
-                if ':' in row:
-                    delimter = ':'
+                if (':' in row) or ('=' in row):
+                    delimter = ':|='
                 else:
                     delimter = '\ |,|\t'
 
                 tokens = re.split(delimter, row, 1)
                 if len(tokens) < 2:
                     continue
-                res[tokens[0]] = tokens[1]
+                res[tokens[0].strip()] = tokens[1].strip()
 
         return res
 
