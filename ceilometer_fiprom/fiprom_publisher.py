@@ -94,12 +94,8 @@ class PrometheusPublisher(HttpPublisher):
                 data += "# TYPE %s %s\n" % (m.name, m.type)
                 doc_done.add(m.name)
 
-
-            additional_dimensions = self.common_dimensions_cache.get(m.get_instance_id())
-            m.dimensions.update(additional_dimensions)
-
-            dstring = ','.join(['{0}="{1}"'.format(k, v) for k, v in m.dimensions.iteritems()])
-            data += '%s{%s} %s\n' % (m.name, dstring, m.value)
+            labels_string = ','.join(['{0}="{1}"'.format(k, v) for k, v in m.labels.iteritems()])
+            data += '%s{%s} %s\n' % (m.name, labels_string, m.value)
             done.append(m)
 
         self._do_post(data)
