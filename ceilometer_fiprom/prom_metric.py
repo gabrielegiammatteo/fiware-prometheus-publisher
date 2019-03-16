@@ -20,44 +20,60 @@
 # under the License.
 
 import re
+
 from ceilometer import sample
 
+
+# matches the id of resources (in uuid4 format)
 uuid4regex = re.compile('[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}', re.I)
 
 
 class PromMetric(object):
-    type = None
-    name = None
-    dimensions = {}
-    value = None
-    source = None
 
+    def __init__(self, sample):
+        self.source = sample
+        self.labels = {}
+
+    def add_label(self, key, value):
+        self.labels[key] = value
 
     def get_instance_id(self):
+
+        if 'instance_id' in self.labels:
+            return self.labels['instance_id']
+
         if self.source.name.startswith('disk.device'):
-            return self.dimensions['resource_id'][:36]
+            return self.labels['resource_id'][:36]
 
         if self.source.name.startswith('network'):
             try:
-                return uuid4regex.search(self.dimensions['resource_id']).group(0)
+                return uuid4regex.search(self.labels['resource_id']).group(0)
             except Exception as ex:
-                return self.dimensions['resource_id']
+                return self.labels['resource_id']
 
+        return self.labels['resource_id']
 
-        return self.dimensions['resource_id']
+    def update_labels(self, nlabels, override=False):
+        if override:
+            self.labels.update(nlabels)
+            return
+
+        for k, v in nlabels.iteritems():
+            if k not in self.labels:
+                self.labels[k] = v
 
     def __str__(self):
-        dstring = ','.join(['{0}="{1}"'.format(k, v) for k, v in self.dimensions.iteritems()])
+        dstring = ','.join(['{0}="{1}"'.format(k, v) for k, v in self.labels.iteritems()])
         return '[%s{%s} %s]' % (self.name, dstring, self.value)
 
     def __eq__(self, o):
-        return self.name == o.name and self.dimensions == o.dimensions
+        return self.name == o.name and self.labels == o.labels
 
 
 def get_prom_metric(s):
-    m = PromMetric()
+    m = PromMetric(s)
 
-    m.name = 'os_{0}'.format(s.name.replace('.','_'))
+    m.name = 'os_{0}'.format(s.name.replace('.', '_'))
     m.value = s.volume
 
     # set the correct metric type
@@ -66,12 +82,12 @@ def get_prom_metric(s):
     elif s.type == sample.TYPE_GAUGE:
         m.type = "gauge"
 
+    m.add_label('resource_id', s.resource_id)
+    m.add_label('unit', s.unit)
+    m.add_label('instance_id', m.get_instance_id())
+    m.add_label('user_id', s.user_id)
 
-    dimensions = {}
-    dimensions['resource_id'] = s.resource_id
-    dimensions['unit'] = s.unit
-
-    m.dimensions = dimensions
-    m.source = s
+    if hasattr(s, 'project_id'):
+        m.add_label('tenant_id', s.project_id)
 
     return m
