@@ -20,8 +20,9 @@
 # under the License.
 
 from six.moves.urllib import parse as urlparse
+
 from ceilometer.openstack.common import log
-from ceilometer_fiprom.dimensions import CommonDimensionsCache, NamesMapping, TenantGroupMapping
+from ceilometer_fiprom.instance_labels import InstanceLabelsCache, NamesMapping, TenantGroupMapping
 from ceilometer_fiprom.prom_metric import get_prom_metric
 from ceilometer_fiprom.util import HttpPublisher
 
@@ -29,29 +30,24 @@ LOG = log.getLogger(__name__)
 
 
 class PrometheusPublisher(HttpPublisher):
-
     HEADERS = {'Content-type': 'plain/text'}
-
 
     def __init__(self, parsed_url):
         super(PrometheusPublisher, self).__init__(parsed_url)
-        
+
         # Get cache and names files from URL parameters
         params = urlparse.parse_qs(parsed_url.query)
         self.cache_file = self._get_param(params, 'cache_file', '/tmp/fiprom_publisher_cache', str)
         self.names_file = self._get_param(params, 'names_file', '/tmp/fiprom_publisher_names', str)
         self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/tmp/fiprom_publisher_tenant_group', str)
-        max_parallel_requests = self._get_param(params, 'max_parallel_requests', 10, int)
 
         LOG.info('using cache_file at %s', self.cache_file)
         LOG.info('using names_file at %s', self.names_file)
         LOG.info('using tenant_group_file at %s', self.tenant_group_file)
-        LOG.info('using max_parallel_requests: %d', max_parallel_requests)
 
-        self.common_dimensions_cache = CommonDimensionsCache(self.cache_file)
+        self.instance_labels_cache = InstanceLabelsCache(self.cache_file)
         self.names_mapping = NamesMapping(self.names_file)
         self.tenant_group_mapping = TenantGroupMapping(self.tenant_group_file)
-
 
     def publish_samples(self, context, samples):
 
@@ -60,21 +56,22 @@ class PrometheusPublisher(HttpPublisher):
 
         LOG.debug('Got %d samples to publish', len(samples))
 
-        # transform to Prometheus metrics
+        # transform samples to Prometheus metrics
         metrics = [get_prom_metric(s) for s in samples]
 
-        # search for common metadata to add in cache
-        map(self.common_dimensions_cache.add, metrics)
+        # cache instance info that might be in the samples
+        map(self.instance_labels_cache.add_instance_info, metrics)
 
-        # update metric dimensions adding common metadata
+        # update metrics with name and tenant group labels
+        if (self.names_mapping.needs_reload()):
+            self.instance_labels_cache.update_names(self.names_mapping.get_from_file())
+
+        if (self.tenant_group_mapping.needs_reload()):
+            self.instance_labels_cache.update_tenant_groups(self.tenant_group_mapping.get_from_file())
+
+        # update metrics with instance labels
         for m in metrics:
-            m.dimensions.update(self.common_dimensions_cache.get(m.get_instance_id()))
-
-        if(self.names_mapping.needs_reload()):
-            self.common_dimensions_cache.update_names(self.names_mapping.get_from_file())
-
-        if(self.tenant_group_mapping.needs_reload()):
-            self.common_dimensions_cache.update_tenant_groups(self.tenant_group_mapping.get_from_file())
+            m.update_labels(self.instance_labels_cache.get(m.get_instance_id()))
 
         data = ""
         doc_done = set()
@@ -86,8 +83,10 @@ class PrometheusPublisher(HttpPublisher):
                 continue
 
             if m in done:
-                # the pushgateway only allow only one instance of a metric to be pushed in the same request
-                # (see https://github.com/prometheus/pushgateway/issues/202)
+                # The pushgateway only allow only one instance of a metric (same name and same labels) to be pushed
+                # in the same request(see https://github.com/prometheus/pushgateway/issues/202)
+                # This might happen if there are multiple sample to publish, but apparently Ceilometer call this method
+                # always with one sample
                 LOG.info('Dropping metric %s because already processed in this request', m)
                 continue
 
@@ -105,9 +104,8 @@ class PrometheusPublisher(HttpPublisher):
 
         self._do_post(data)
 
-        if self.common_dimensions_cache.needs_dump():
-            self.common_dimensions_cache.dump_to_file()
-
+        if self.instance_labels_cache.needs_dump():
+            self.instance_labels_cache.dump_to_file()
 
     @staticmethod
     def publish_events(events):
