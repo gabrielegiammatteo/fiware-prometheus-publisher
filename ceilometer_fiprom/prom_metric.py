@@ -20,9 +20,14 @@
 # under the License.
 
 import re
+import yaml
+import fnmatch
 
 from ceilometer import sample
+from ceilometer.openstack.common import log
+from ceilometer_fiprom.util import FileConfiguration
 
+LOG = log.getLogger(__name__)
 
 # matches the id of resources (in uuid4 format)
 uuid4regex = re.compile('[a-f0-9]{8}-?[a-f0-9]{4}-?4[a-f0-9]{3}-?[89ab][a-f0-9]{3}-?[a-f0-9]{12}', re.I)
@@ -36,22 +41,6 @@ class PromMetric(object):
 
     def add_label(self, key, value):
         self.labels[key] = value
-
-    def get_instance_id(self):
-
-        if 'instance_id' in self.labels:
-            return self.labels['instance_id']
-
-        if self.source.name.startswith('disk.device'):
-            return self.labels['resource_id'][:36]
-
-        if self.source.name.startswith('network'):
-            try:
-                return uuid4regex.search(self.labels['resource_id']).group(0)
-            except Exception as ex:
-                return self.labels['resource_id']
-
-        return self.labels['resource_id']
 
     def update_labels(self, nlabels, override=False):
         if override:
@@ -70,24 +59,49 @@ class PromMetric(object):
         return self.name == o.name and self.labels == o.labels
 
 
-def get_prom_metric(s):
-    m = PromMetric(s)
+class SampleConverter(FileConfiguration):
 
-    m.name = 'os_{0}'.format(s.name.replace('.', '_'))
-    m.value = s.volume
+    def _parse(self, content):
+        self.conf = yaml.load(content, Loader=yaml.FullLoader)
+        print(self.conf)
 
-    # set the correct metric type
-    if s.type == sample.TYPE_CUMULATIVE:
-        m.type = "counter"
-    elif s.type == sample.TYPE_GAUGE:
-        m.type = "gauge"
+    def _load_rules(self, name):
+        res = {}
+        for r in self.conf['labels']:
+            if fnmatch.fnmatch(name, r.keys()[0]):
+                for d in r[r.keys()[0]]:
+                    res.update(d)
+        return res
 
-    m.add_label('resource_id', s.resource_id)
-    m.add_label('unit', s.unit)
-    m.add_label('instance_id', m.get_instance_id())
-    m.add_label('user_id', s.user_id)
+    def get_prom_metric(self, s):
 
-    if hasattr(s, 'project_id'):
-        m.add_label('tenant_id', s.project_id)
+        LOG.debug('Transforming sample %s', s.as_dict())
+        m = PromMetric(s)
 
-    return m
+        m.name = eval(self.conf['name_mapping'], s.as_dict())
+
+        m.value = s.volume
+
+        # set the correct metric type
+        if s.type == sample.TYPE_CUMULATIVE:
+            m.type = "counter"
+        elif s.type == sample.TYPE_GAUGE:
+            m.type = "gauge"
+        else:
+            m.type = None
+
+        label_specs = self._load_rules(s.name)
+
+        for k,v in label_specs.iteritems():
+
+            globals = s.as_dict()
+            globals.update({'uuid4regex': uuid4regex})
+            globals.update(m.labels)
+
+            try:
+                value = eval(v, globals)
+                m.add_label(k, value)
+            except Exception as ex:
+                LOG.warning('Error creating label %s with rule0  %s: %s -> %s', k, k, v, str(ex))
+
+        return m

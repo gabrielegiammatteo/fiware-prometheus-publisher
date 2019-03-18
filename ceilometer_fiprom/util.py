@@ -29,6 +29,36 @@ from requests import adapters
 from ceilometer.openstack.common import log
 LOG = log.getLogger(__name__)
 
+
+import os
+
+class FileConfiguration(object):
+
+    def __init__(self, file_name):
+        self._file = file_name
+        self.__last_update = 0
+        self._parse(self._get_file_content())
+
+    def needs_reload(self):
+        if not os.path.isfile(self._file):
+            return False
+
+        if self.__last_update < os.stat(self._file).st_mtime:
+            return True
+
+    def reload_if_needed(self):
+        if self.needs_reload():
+            self._parse(self._get_file_content())
+
+    def _get_file_content(self):
+        LOG.debug('File %s reloaded', self._file)
+        with open(self._file, 'rb') as file:
+            return file.read()
+
+    def _parse(self, content):
+        raise NotImplemented('Must be implemented by subclasses')
+
+
 #
 # A backport of the http publisher in the Ceilometer distribution
 #

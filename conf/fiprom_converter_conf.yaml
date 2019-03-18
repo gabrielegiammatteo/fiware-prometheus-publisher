@@ -1,0 +1,23 @@
+
+# defines how the name of metrics will be created
+name_mapping: '"os_" + name.replace(".", "_")'
+
+labels:
+ # rules are applied in the order they appear
+  - '*':
+    - user_id: user_id
+    - unit: unit
+    - resource_id: resource_id
+    - instance_id: resource_id  # this is overridden for some metrics (e.g. network)
+    - tenant_id: project_id
+
+  - disk.device.*:
+    - instance_id: resource_id[:36]
+
+  - network.*:
+    - instance_id: uuid4regex.search(resource_id).group(0)
+
+  - ip.floating:
+    - instance_id: # empty value to not set the label
+    - ip_address: resource_metadata['floating_ip_address']
+    - operation: resource_metadata['event_type']
