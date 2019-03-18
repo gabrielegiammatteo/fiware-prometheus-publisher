@@ -23,7 +23,7 @@ from six.moves.urllib import parse as urlparse
 
 from ceilometer.openstack.common import log
 from ceilometer_fiprom.instance_labels import InstanceLabelsCache, NamesMapping, TenantGroupMapping
-from ceilometer_fiprom.prom_metric import get_prom_metric
+from ceilometer_fiprom.prom_metric import SampleConverter
 from ceilometer_fiprom.util import HttpPublisher
 
 LOG = log.getLogger(__name__)
@@ -40,14 +40,17 @@ class PrometheusPublisher(HttpPublisher):
         self.cache_file = self._get_param(params, 'cache_file', '/tmp/fiprom_publisher_cache', str)
         self.names_file = self._get_param(params, 'names_file', '/tmp/fiprom_publisher_names', str)
         self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/tmp/fiprom_publisher_tenant_group', str)
+        self.converter_conf_file = self._get_param(params, 'converter_conf_file', '/tmp/fiprom_converter_conf', str)
 
         LOG.info('using cache_file at %s', self.cache_file)
         LOG.info('using names_file at %s', self.names_file)
         LOG.info('using tenant_group_file at %s', self.tenant_group_file)
+        LOG.info('using converter_conf_file at %s', self.converter_conf_file)
 
         self.instance_labels_cache = InstanceLabelsCache(self.cache_file)
         self.names_mapping = NamesMapping(self.names_file)
         self.tenant_group_mapping = TenantGroupMapping(self.tenant_group_file)
+        self.converter = SampleConverter(self.converter_conf_file)
 
     def publish_samples(self, context, samples):
 
@@ -56,22 +59,24 @@ class PrometheusPublisher(HttpPublisher):
 
         LOG.debug('Got %d samples to publish', len(samples))
 
+        LOG.debug('Updating configuration if needed')
+        self.converter.reload_if_needed()
+        self.names_mapping.reload_if_needed()
+        self.tenant_group_mapping.reload_if_needed()
+
         # transform samples to Prometheus metrics
-        metrics = [get_prom_metric(s) for s in samples]
+        metrics = [self.converter.get_prom_metric(s) for s in samples]
 
         # cache instance info that might be in the samples
         map(self.instance_labels_cache.add_instance_info, metrics)
 
         # update metrics with name and tenant group labels
-        if (self.names_mapping.needs_reload()):
-            self.instance_labels_cache.update_names(self.names_mapping.get_from_file())
-
-        if (self.tenant_group_mapping.needs_reload()):
-            self.instance_labels_cache.update_tenant_groups(self.tenant_group_mapping.get_from_file())
+        self.instance_labels_cache.update_names(self.names_mapping.names)
+        self.instance_labels_cache.update_tenant_groups(self.tenant_group_mapping.names)
 
         # update metrics with instance labels
         for m in metrics:
-            m.update_labels(self.instance_labels_cache.get(m.get_instance_id()))
+            m.update_labels(self.instance_labels_cache.get(m.labels.get('instance_id', None)))
 
         data = ""
         doc_done = set()

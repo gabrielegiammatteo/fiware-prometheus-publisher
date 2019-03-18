@@ -19,13 +19,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import fcntl
 
-import os
-import pickle
 import re
+import os
+import fcntl
+import pickle
 
 from ceilometer.openstack.common import log
+from ceilometer_fiprom.util import FileConfiguration
 
 LOG = log.getLogger(__name__)
 
@@ -33,63 +34,48 @@ CACHE_DUMP_INTERVAL = 60 * 15  # 15 minutes
 
 UNKNOWN_VALUE = 'unknown'
 COMPLETE_LABEL = '_complete'
+
 DEFAULT_INSTANCE_DIMENSIONS = {
 
-    'instance': UNKNOWN_VALUE,
-    'instance_id': UNKNOWN_VALUE,
-    'user': UNKNOWN_VALUE,
-    'user_id': UNKNOWN_VALUE,
-    'tenant': UNKNOWN_VALUE,
-    'tenant_id': UNKNOWN_VALUE,
+    'instance':     UNKNOWN_VALUE,
+    'instance_id':  UNKNOWN_VALUE,
+    'user':         UNKNOWN_VALUE,
+    'user_id':      UNKNOWN_VALUE,
+    'tenant':       UNKNOWN_VALUE,
+    'tenant_id':    UNKNOWN_VALUE,
     'tenant_group': UNKNOWN_VALUE,
-    'image': UNKNOWN_VALUE,
-    'flavor': UNKNOWN_VALUE,
-    'host': UNKNOWN_VALUE,
-    'host_id': UNKNOWN_VALUE,
-    'vcpus': UNKNOWN_VALUE,
-    'ram': UNKNOWN_VALUE,
-    'disk': UNKNOWN_VALUE,
+    'image':        UNKNOWN_VALUE,
+    'flavor':       UNKNOWN_VALUE,
+    'host':         UNKNOWN_VALUE,
+    'host_id':      UNKNOWN_VALUE,
+    'vcpus':        UNKNOWN_VALUE,
+    'ram':          UNKNOWN_VALUE,
+    'disk':         UNKNOWN_VALUE,
     COMPLETE_LABEL: False  # specify whether all dta about the instance has been extracted
 }
 
 
-class NamesMapping(object):
+class NamesMapping(FileConfiguration):
     '''
     Since Ceilometer samples contains in most cases only the id of objects (user, tenant, host)
     we load an id-name mapping from a file and use it to add name label in the Prometheus metrics
     '''
 
-    def __init__(self, names_file):
-        self._file = names_file
-        self.__last_update = 0
+    def _parse(self, content):
+        self.names = {}
 
-    def needs_reload(self):
+        for row in content.split('\n'):
+            # prefer ":" if present as delimiter
+            if (':' in row) or ('=' in row):
+                delimter = ':|='
+            else:
+                delimter = '\ |,|\t'
+            tokens = re.split(delimter, row, 1)
+            if len(tokens) < 2:
+                continue
+            self.names[tokens[0].strip()] = tokens[1].strip()
 
-        if not os.path.isfile(self._file):
-            return False
 
-        if self.__last_update < os.stat(self._file).st_mtime:
-            return True
-
-    def get_from_file(self):
-
-        res = {}
-
-        with open(self._file, 'rb') as file:
-            for row in file.read().split('\n'):
-
-                # prefer ":" if present as delimiter
-                if (':' in row) or ('=' in row):
-                    delimter = ':|='
-                else:
-                    delimter = '\ |,|\t'
-
-                tokens = re.split(delimter, row, 1)
-                if len(tokens) < 2:
-                    continue
-                res[tokens[0].strip()] = tokens[1].strip()
-
-        return res
 
 
 class TenantGroupMapping(NamesMapping):
@@ -97,6 +83,7 @@ class TenantGroupMapping(NamesMapping):
     Load the tenant group of each tenant from file
     '''
     pass
+
 
 
 class InstanceLabelsCache(object):
@@ -124,9 +111,22 @@ class InstanceLabelsCache(object):
 
     def dump_to_file(self):
         LOG.debug("Dumping cache to file")
-        with open(self.cache_file, 'w') as cf:
+
+
+        with open(self.cache_file, 'w+') as cf:
             fcntl.lockf(cf, fcntl.LOCK_EX)
-            pickle.dump(self.cache, cf)
+
+            # load the file if exist, otherwise init an empty dict
+            try:
+                file_cache = pickle.load(cf)
+            except EOFError:
+                file_cache = {}
+
+            for id, v in self.cache.iteritems():
+                if (id not in file_cache) or file_cache[id][COMPLETE_LABEL] is False:
+                    file_cache[id] = v
+
+            pickle.dump(file_cache, cf)
             fcntl.lockf(cf, fcntl.LOCK_UN)
         self.__needs_dump = False
 
@@ -161,7 +161,10 @@ class InstanceLabelsCache(object):
     def add_instance_info(self, metric):
         ''' try to extract instnace info from a Sample. Not all samples contain them'''
 
-        instance_id = metric.get_instance_id()
+        if not 'instance_id' in metric.labels:
+            return
+
+        instance_id = metric.labels['instance_id']
         if instance_id in self.cache and self.cache[instance_id]['_complete'] == True:
             # already in cache
             return
@@ -212,4 +215,4 @@ class InstanceLabelsCache(object):
             self.__needs_dump = True
 
     def get(self, instance_id):
-        return self.cache.get(instance_id, DEFAULT_INSTANCE_DIMENSIONS)
+        return self.cache.get(instance_id, DEFAULT_INSTANCE_DIMENSIONS) if instance_id else {}
