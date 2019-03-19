@@ -1,9 +1,14 @@
 
-# defines how the name of metrics will be created
+# Defines how the name of metrics will be created
+# value of the name_mapping key is a Python expression evaluated at runtime by the eval() function
+#
 name_mapping: '"os_" + name.replace(".", "_")'
 
+# Here it is possible to define which labels will be created for each metric, based on the name of the sample
 labels:
- # rules are applied in the order they appear
+
+# Supports wildecards. Multiple sets might match. In this case, they are applied in the same order they appear here.
+# Override is possible
   - '*':
     - user_id: user_id
     - unit: unit
@@ -18,6 +23,6 @@ labels:
     - instance_id: uuid4regex.search(resource_id).group(0)
 
   - ip.floating:
-    - instance_id: # empty value to not set the label
+    - instance_id: # empty value to unset the label
     - ip_address: resource_metadata['floating_ip_address']
     - operation: resource_metadata['event_type']
