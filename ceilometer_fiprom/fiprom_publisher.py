@@ -37,10 +37,10 @@ class PrometheusPublisher(HttpPublisher):
 
         # Get cache and names files from URL parameters
         params = urlparse.parse_qs(parsed_url.query)
-        self.cache_file = self._get_param(params, 'cache_file', '/tmp/fiprom_publisher_cache', str)
-        self.names_file = self._get_param(params, 'names_file', '/tmp/fiprom_publisher_names', str)
-        self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/tmp/fiprom_publisher_tenant_group', str)
-        self.converter_conf_file = self._get_param(params, 'converter_conf_file', '/tmp/fiprom_converter_conf', str)
+        self.cache_file = self._get_param(params, 'cache_file', '/tmp/fiprom_cache', str)
+        self.names_file = self._get_param(params, 'names_file', '/opt/fiprom_names', str)
+        self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/opt/fiprom_groups', str)
+        self.converter_conf_file = self._get_param(params, 'converter_conf_file', '/etc/ceilometer/fiprom_converter.yaml', str)
 
         LOG.info('using cache_file at %s', self.cache_file)
         LOG.info('using names_file at %s', self.names_file)
