@@ -30,9 +30,7 @@ from ceilometer_fiprom.util import FileConfiguration
 
 LOG = log.getLogger(__name__)
 
-CACHE_DUMP_INTERVAL = 60 * 15  # 15 minutes
-
-UNKNOWN_VALUE = 'unknown'
+UNKNOWN_VALUE = None
 COMPLETE_LABEL = '_complete'
 
 DEFAULT_INSTANCE_DIMENSIONS = {
@@ -76,14 +74,11 @@ class NamesMapping(FileConfiguration):
             self.names[tokens[0].strip()] = tokens[1].strip()
 
 
-
-
 class TenantGroupMapping(NamesMapping):
     '''
     Load the tenant group of each tenant from file
     '''
     pass
-
 
 
 class InstanceLabelsCache(object):
@@ -111,7 +106,6 @@ class InstanceLabelsCache(object):
 
     def dump_to_file(self):
         LOG.debug("Dumping cache to file")
-
 
         with open(self.cache_file, 'w+') as cf:
             fcntl.lockf(cf, fcntl.LOCK_EX)
@@ -145,9 +139,9 @@ class InstanceLabelsCache(object):
         for k, v in self.cache.iteritems():
             if not v[COMPLETE_LABEL]:
                 self.__update_cache(k, {
-                    'user': names_dict.get(v['user_id'], UNKNOWN_VALUE),
+                    'user':   names_dict.get(v['user_id'],   UNKNOWN_VALUE),
                     'tenant': names_dict.get(v['tenant_id'], UNKNOWN_VALUE),
-                    'host': names_dict.get(v['host_id'], UNKNOWN_VALUE)})
+                    'host':   names_dict.get(v['host_id'],   UNKNOWN_VALUE)})
                 self.__update_complete(v)
 
     def update_tenant_groups(self, groups_dict):
@@ -174,20 +168,20 @@ class InstanceLabelsCache(object):
 
         # first add data that we know is in all metrics
         self.__update_cache(instance_id, {
-            'instance_id': instance_id,
-            'tenant_id': metric.labels['tenant_id'],
-            'user_id': metric.labels['user_id']
+            'instance_id':  instance_id,
+            'tenant_id':    metric.labels['tenant_id'],
+            'user_id':      metric.labels['user_id']
         })
 
         s = metric.source
         self.__update_cache(instance_id, {
             'instance': s.resource_metadata.get('display_name', UNKNOWN_VALUE),
-            'flavor': s.resource_metadata['flavor']['name'] if 'flavor' in s.resource_metadata else UNKNOWN_VALUE,
-            'image': s.resource_metadata['image']['name'] if 'image' in s.resource_metadata else UNKNOWN_VALUE,
-            'vcpus': s.resource_metadata.get('vcpus', UNKNOWN_VALUE),
-            'ram': s.resource_metadata.get('memory_mb', UNKNOWN_VALUE),
-            'disk': s.resource_metadata.get('disk_gb', UNKNOWN_VALUE),
-            'host_id': s.resource_metadata.get('host', UNKNOWN_VALUE)
+            'flavor':   s.resource_metadata['flavor']['name'] if 'flavor' in s.resource_metadata else UNKNOWN_VALUE,
+            'image':    s.resource_metadata['image']['name'] if 'image' in s.resource_metadata else UNKNOWN_VALUE,
+            'vcpus':    s.resource_metadata.get('vcpus', UNKNOWN_VALUE),
+            'ram':      s.resource_metadata.get('memory_mb', UNKNOWN_VALUE),
+            'disk':     s.resource_metadata.get('disk_gb', UNKNOWN_VALUE),
+            'host_id':  s.resource_metadata.get('host', UNKNOWN_VALUE)
         })
 
         self.__update_complete(self.cache[instance_id])
@@ -215,4 +209,5 @@ class InstanceLabelsCache(object):
             self.__needs_dump = True
 
     def get(self, instance_id):
-        return self.cache.get(instance_id, DEFAULT_INSTANCE_DIMENSIONS) if instance_id else {}
+        return {k: v for k, v in self.cache.get(instance_id, {}).iteritems()
+                if (k != COMPLETE_LABEL) and (v is not None)}

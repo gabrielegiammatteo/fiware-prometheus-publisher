@@ -75,7 +75,6 @@ class SampleConverter(FileConfiguration):
 
     def get_prom_metric(self, s):
 
-        LOG.debug('Transforming sample %s', s.as_dict())
         m = PromMetric(s)
 
         m.name = eval(self.conf['name_mapping'], s.as_dict())
