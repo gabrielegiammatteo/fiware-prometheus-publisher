@@ -48,7 +48,10 @@ class FileConfiguration(object):
 
     def reload_if_needed(self):
         if self.needs_reload():
-            self._parse(self._get_file_content())
+            self.reload()
+
+    def reload(self):
+        self._parse(self._get_file_content())
 
     def _get_file_content(self):
         LOG.debug('File %s reloaded', self._file)
