@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='fiware-prometheus-publisher',
-    version='0.0.15',
+    version='0.0.21',
     description='Ceilometer Publisher for the FIWARE infrastructure',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -35,6 +35,9 @@ setup(
     entry_points = {
         'ceilometer.publisher': [
             'fiprom = ceilometer_fiprom.fiprom_publisher:PrometheusPublisher'
+        ],
+        'ceilometer.metering.storage': [
+            'fiprom = ceilometer_fiprom.fiprom_storage:PrometheusStorage'
         ]
     },
 
