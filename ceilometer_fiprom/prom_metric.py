@@ -63,7 +63,6 @@ class SampleConverter(FileConfiguration):
 
     def _parse(self, content):
         self.conf = yaml.load(content, Loader=yaml.FullLoader)
-        print(self.conf)
 
     def _load_rules(self, name):
         res = {}
