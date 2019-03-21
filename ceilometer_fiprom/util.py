@@ -52,6 +52,7 @@ class FileConfiguration(object):
 
     def reload(self):
         self._parse(self._get_file_content())
+        self.__last_update = os.stat(self._file).st_mtime
 
     def _get_file_content(self):
         LOG.debug('File %s reloaded', self._file)
