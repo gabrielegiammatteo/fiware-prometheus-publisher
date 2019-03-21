@@ -18,7 +18,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
-
+import urllib
 from six.moves.urllib import parse as urlparse
 from ceilometer.openstack.common import log
 from ceilometer_fiprom.instance_labels import InstanceLabelsCache, NamesMapping, TenantGroupMapping
@@ -31,7 +31,6 @@ class PrometheusPublisher(HttpPublisher):
     HEADERS = {'Content-type': 'plain/text'}
 
     def __init__(self, parsed_url):
-        super(PrometheusPublisher, self).__init__(parsed_url)
 
         # Get configuration from query string
         params = urlparse.parse_qs(parsed_url.query)
@@ -49,6 +48,10 @@ class PrometheusPublisher(HttpPublisher):
         self.names_mapping = NamesMapping(self.names_file)
         self.tenant_group_mapping = TenantGroupMapping(self.tenant_group_file)
         self.converter = SampleConverter(self.converter_conf_file)
+
+        # remove used params from the query string
+        parsed_url = parsed_url._replace(query=urllib.urlencode(params))
+        super(PrometheusPublisher, self).__init__(parsed_url)
 
     def publish_samples(self, context, samples):
 
