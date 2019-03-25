@@ -18,6 +18,7 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+
 import urllib
 from six.moves.urllib import parse as urlparse
 from ceilometer.openstack.common import log
@@ -38,11 +39,13 @@ class PrometheusPublisher(HttpPublisher):
         self.names_file = self._get_param(params, 'names_file', '/opt/fiprom_names', str)
         self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/opt/fiprom_groups', str)
         self.converter_conf_file = self._get_param(params, 'converter_conf_file', '/etc/ceilometer/fiprom_converter.yaml', str)
+        self.logfile = self._get_param(params, 'log_file', None, str)
 
         LOG.info('using cache_file at %s', self.cache_file)
         LOG.info('using names_file at %s', self.names_file)
         LOG.info('using tenant_group_file at %s', self.tenant_group_file)
         LOG.info('using converter_conf_file at %s', self.converter_conf_file)
+        LOG.info('Logging received events to %s', self.logfile)
 
         self.instance_labels_cache = InstanceLabelsCache(self.cache_file)
         self.names_mapping = NamesMapping(self.names_file)
@@ -51,21 +54,15 @@ class PrometheusPublisher(HttpPublisher):
 
         # remove used params from the query string
         parsed_url = parsed_url._replace(query=urllib.urlencode(params))
+        self.pub_url = parsed_url._replace(query='')._replace(scheme='http')
         super(PrometheusPublisher, self).__init__(parsed_url)
 
+
     def publish_samples(self, context, samples):
-
-        if not samples:
-            return
-
-        LOG.debug('Got %d samples to publish', len(samples))
-
         self.converter.reload_if_needed()
 
-        # transform samples to Prometheus metrics
         metrics = [self.converter.get_prom_metric(s) for s in samples]
 
-        # caches instance info that might be in the samples
         map(self.instance_labels_cache.add_instance_info, metrics)
 
         # update cache with name and tenant group labels
@@ -77,36 +74,25 @@ class PrometheusPublisher(HttpPublisher):
             self.tenant_group_mapping.reload()
             self.instance_labels_cache.update_tenant_groups(self.tenant_group_mapping.names)
 
-        # update metrics with instance labels
-        for m in metrics:
-            m.update_labels(self.instance_labels_cache.get(m.labels['instance_id']))
-
-        data = ""
-        doc_done = set()
-        done = []
         for m in metrics:
 
             if not m.type:
-                LOG.info('Dropping metric %s because type is not supported', m)
+                LOG.warning('Dropping metric because type is not supported: %s', m)
                 continue
 
-            if m in done:
-                # The pushgateway only allow only one instance of a metric (same name and same labels) to be pushed
-                # in the same request(see https://github.com/prometheus/pushgateway/issues/202)
-                # This might happen if there are multiple sample to publish, but apparently Ceilometer call this method
-                # always with one sample
-                LOG.info('Dropping metric %s because already processed in this request', m)
-                continue
+            m.update_labels(self.instance_labels_cache.get(m.labels['__cache_key']))
+            grouping_keys = m.labels['__grouping_key']
+            pubpath = self.pub_url.path +'/' + '/'.join(['{0}/{1}'.format(k, m.labels[k]) for k in grouping_keys if k in m.labels])
 
-            if m.name not in doc_done:
-                data += "# TYPE %s %s\n" % (m.name, m.type)
-                doc_done.add(m.name)
+            labels = ','.join(['{0}="{1}"'.format(k, v) for k, v in m.labels.iteritems() if not k.startswith('__')])
 
-            labels_string = ','.join(['{0}="{1}"'.format(k, v) for k, v in m.labels.iteritems()])
-            data += '%s{%s} %s\n' % (m.name, labels_string, m.value)
-            done.append(m)
+            data = "# TYPE {0} {1}\n{0}{{{2}}} {3}\n".format(m.name, m.type, labels, m.value)
 
-        self._do_post(data)
+            self._do_post(self.pub_url._replace(path=pubpath), data)
+
+            if self.logfile:
+                with open(self.logfile, 'a+') as c:
+                    c.write('{0}\n'.format(data))
 
         if self.instance_labels_cache.needs_dump():
             self.instance_labels_cache.dump_to_file()
