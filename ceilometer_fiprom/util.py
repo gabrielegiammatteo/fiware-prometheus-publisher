@@ -37,7 +37,18 @@ class FileConfiguration(object):
     def __init__(self, file_name):
         self._file = file_name
         self.__last_update = 0
-        self._parse(self._get_file_content())
+
+        self.reload()
+
+    def needs_save(self):
+        raise NotImplemented('Needs to be implemented by subclasses')
+
+    def save(self):
+        raise NotImplemented('Needs to be implemented by subclasses')
+
+    def save_if_needed(self):
+        if self.needs_save():
+            self.save()
 
     def needs_reload(self):
         if not os.path.isfile(self._file):
@@ -52,9 +63,11 @@ class FileConfiguration(object):
 
     def reload(self):
         self._parse(self._get_file_content())
-        self.__last_update = os.stat(self._file).st_mtime
+        self.__last_update = os.stat(self._file).st_mtime if os.path.isfile(self._file) else 0
 
     def _get_file_content(self):
+        if not os.path.isfile(self._file):
+            return None
         LOG.debug('File %s reloaded', self._file)
         with open(self._file, 'rb') as file:
             return file.read()
@@ -167,17 +180,17 @@ class HttpPublisher(PublisherBase):
             return
         self._do_post(json.dumps(data))
 
-    def _do_post(self, data):
+    def _do_post(self, pub_url, data):
         LOG.debug('Message: %s', data)
         try:
-            res = self.session.post(self.target, data=data,
+            res = self.session.post(urlparse.urlunparse(pub_url), data=data,
                                     headers=self.HEADERS, timeout=self.timeout,
                                     auth=self.client_auth,
                                     cert=self.client_cert,
                                     verify=self.verify_ssl)
             res.raise_for_status()
             LOG.debug('Message posting to %s: status code %d.',
-                      self.target, res.status_code)
+                      urlparse.urlunparse(pub_url), res.status_code)
         except requests.exceptions.HTTPError:
             LOG.exception('Status Code: %(code)s. '
                           'Failed to dispatch message: %(data)s' %
