@@ -22,11 +22,12 @@
 import urllib
 from six.moves.urllib import parse as urlparse
 from ceilometer.openstack.common import log
-from ceilometer_fiprom.instance_labels import InstanceLabelsCache, NamesMapping, TenantGroupMapping
+from ceilometer_fiprom.metric_enrichment import NamesEnricher, TenantGroupEnricher, InstanceEnricher
 from ceilometer_fiprom.prom_metric import SampleConverter
 from ceilometer_fiprom.util import HttpPublisher
 
 LOG = log.getLogger(__name__)
+
 
 class PrometheusPublisher(HttpPublisher):
     HEADERS = {'Content-type': 'plain/text'}
@@ -40,17 +41,23 @@ class PrometheusPublisher(HttpPublisher):
         self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/opt/fiprom_groups', str)
         self.converter_conf_file = self._get_param(params, 'converter_conf_file', '/etc/ceilometer/fiprom_converter.yaml', str)
         self.logfile = self._get_param(params, 'log_file', None, str)
+        self.dryrun = self._get_param(params, 'dryrun', False, bool)
 
         LOG.info('using cache_file at %s', self.cache_file)
         LOG.info('using names_file at %s', self.names_file)
         LOG.info('using tenant_group_file at %s', self.tenant_group_file)
         LOG.info('using converter_conf_file at %s', self.converter_conf_file)
         LOG.info('Logging received events to %s', self.logfile)
+        LOG.info('dryrun = %s', self.dryrun)
 
-        self.instance_labels_cache = InstanceLabelsCache(self.cache_file)
-        self.names_mapping = NamesMapping(self.names_file)
-        self.tenant_group_mapping = TenantGroupMapping(self.tenant_group_file)
         self.converter = SampleConverter(self.converter_conf_file)
+
+        self.enrichers = [
+            # first use the Instance Enricher because it might adds new IDs that can be enriched by the other ones
+            InstanceEnricher(self.cache_file),
+            NamesEnricher(self.names_file),
+            TenantGroupEnricher(self.tenant_group_file)
+        ]
 
         # remove used params from the query string
         parsed_url = parsed_url._replace(query=urllib.urlencode(params))
@@ -59,43 +66,51 @@ class PrometheusPublisher(HttpPublisher):
 
 
     def publish_samples(self, context, samples):
+
+        # reload config files
         self.converter.reload_if_needed()
+        for e in self.enrichers:
+            e.reload_if_needed()
 
+        # convert samples to metrics
         metrics = [self.converter.get_prom_metric(s) for s in samples]
+        metrics = [m for m in metrics if m is not None]
 
-        map(self.instance_labels_cache.add_instance_info, metrics)
-
-        # update cache with name and tenant group labels
-        if self.names_mapping.needs_reload():
-            self.names_mapping.reload()
-            self.instance_labels_cache.update_names(self.names_mapping.names)
-
-        if self.tenant_group_mapping.needs_reload():
-            self.tenant_group_mapping.reload()
-            self.instance_labels_cache.update_tenant_groups(self.tenant_group_mapping.names)
+        # update caches of enrichers (only InstanceEnricher at the moment)
+        for e in self.enrichers:
+            for m in metrics:
+                e.updateCache(m)
 
         for m in metrics:
 
-            if not m.type:
-                LOG.warning('Dropping metric because type is not supported: %s', m)
-                continue
+            # invoke enrichers to add labels
+            for e in self.enrichers:
+                e.enrichLabels(m)
 
-            m.update_labels(self.instance_labels_cache.get(m.labels['__cache_key']))
-            grouping_keys = m.labels['__grouping_key']
-            pubpath = self.pub_url.path +'/' + '/'.join(['{0}/{1}'.format(k, m.labels[k]) for k in grouping_keys if k in m.labels])
 
-            labels = ','.join(['{0}="{1}"'.format(k, v) for k, v in m.labels.iteritems() if not k.startswith('__')])
+            puburl = self.__build_publication_url(m)
+            pubcon = self.__build_publication_content(m)
 
-            data = "# TYPE {0} {1}\n{0}{{{2}}} {3}\n".format(m.name, m.type, labels, m.value)
-
-            self._do_post(self.pub_url._replace(path=pubpath), data)
+            if not self.dryrun:
+                self._do_post(puburl, pubcon)
 
             if self.logfile:
                 with open(self.logfile, 'a+') as c:
-                    c.write('{0}\n'.format(data))
+                    c.write('{0}\n{1}\n'.format(urlparse.urlunparse(puburl), pubcon))
 
-        if self.instance_labels_cache.needs_dump():
-            self.instance_labels_cache.dump_to_file()
+        for e in self.enrichers:
+            e.save_if_needed()
+
+    def __build_publication_content(self, metric):
+        keys = metric.labels.keys()
+        keys.sort()
+        labels = ','.join(['{0}="{1}"'.format(k, metric.labels[k]) for k in keys if not k.startswith('__')])
+        return "# TYPE {0} {1}\n{0}{{{2}}} {3}\n".format(metric.name, metric.type, labels, metric.value)
+
+    def __build_publication_url(self, metric):
+        grouping_keys = metric.labels['__grouping_key']
+        pubpath = self.pub_url.path +'/' + '/'.join(['{0}/{1}'.format(k, metric.labels[k]) for k in grouping_keys if k in metric.labels])
+        return self.pub_url._replace(path=pubpath)
 
     @staticmethod
     def publish_events(events):
