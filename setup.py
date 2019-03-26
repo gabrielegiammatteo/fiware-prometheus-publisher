@@ -9,7 +9,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='fiware-prometheus-publisher',
-    version='0.0.21',
+    version='0.0.36',
     description='Ceilometer Publisher for the FIWARE infrastructure',
     long_description=long_description,
     long_description_content_type='text/markdown',

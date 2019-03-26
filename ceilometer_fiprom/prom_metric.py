@@ -39,21 +39,18 @@ class PromMetric(object):
         self.source = sample
         self.labels = {}
 
-    def add_label(self, key, value):
-        self.labels[key] = value
+    def add_label(self, key, value, ignore_none = True):
+        if not ignore_none or (value is not None):
+            self.labels[key] = value
 
-    def update_labels(self, nlabels, override=False):
+    def update_labels(self, nlabels, override=False, ignore_none=True):
         if override:
             self.labels.update(nlabels)
             return
 
         for k, v in nlabels.iteritems():
             if k not in self.labels:
-                self.labels[k] = v
-
-    def __str__(self):
-        dstring = ','.join(['{0}="{1}"'.format(k, v) for k, v in self.labels.iteritems()])
-        return '[%s{%s} %s]' % (self.name, dstring, self.value)
+                self.add_label(k, v, ignore_none=ignore_none)
 
     def __eq__(self, o):
         return self.name == o.name and self.labels == o.labels
@@ -62,7 +59,17 @@ class PromMetric(object):
 class SampleConverter(FileConfiguration):
 
     def _parse(self, content):
-        self.conf = yaml.load(content, Loader=yaml.FullLoader)
+
+        if content:
+            self.conf = yaml.load(content, Loader=yaml.SafeLoader)
+        else:
+            self.conf = {'enabled': [], 'labels': {}}
+
+    def __is_enabled(self, name):
+        for r in self.conf['enabled']:
+            if fnmatch.fnmatch(name, r):
+                return True
+        return False
 
     def _load_rules(self, name):
         res = {}
@@ -76,9 +83,9 @@ class SampleConverter(FileConfiguration):
 
         m = PromMetric(s)
 
-        m.name = eval(self.conf['name_mapping'], s.as_dict())
-
-        m.value = s.volume
+        if not self.__is_enabled(s.name):
+            LOG.info('Dropping sample "%s" because not enabled', s.name)
+            return None
 
         # set the correct metric type
         if s.type == sample.TYPE_CUMULATIVE:
@@ -86,7 +93,8 @@ class SampleConverter(FileConfiguration):
         elif s.type == sample.TYPE_GAUGE:
             m.type = "gauge"
         else:
-            m.type = None
+            LOG.warning('Dropping sample "%s" because type is not supported: %s', s.name, s.type)
+            return None
 
         label_specs = self._load_rules(s.name)
 
@@ -97,9 +105,13 @@ class SampleConverter(FileConfiguration):
             globals.update(m.labels)
 
             try:
-                value = eval(v, globals)
-                m.add_label(k, value)
+                if v is not None:
+                    value = eval(v, globals)
+                    m.add_label(k, value)
             except Exception as ex:
-                LOG.warning('Error creating label %s with rule0  %s: %s -> %s', k, k, v, str(ex))
+                LOG.warning('Error creating label "%s" for metric "%s". %s: %s',
+                            k, m.labels.get('__name', None), ex.__class__.__name__, ex.message)
 
+        m.name = m.labels['__name']
+        m.value = m.labels['__value']
         return m

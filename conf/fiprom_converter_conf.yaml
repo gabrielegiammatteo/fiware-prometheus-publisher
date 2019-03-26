@@ -1,20 +1,21 @@
 
-# Defines how the name of metrics will be created
-# value of the name_mapping key is a Python expression evaluated at runtime by the eval() function
-#
-name_mapping: '"os_" + name.replace(".", "_")'
+enabled:
+  - '*'
+  - 'network.*'
+  - 'cpu*'
+  - 'disk.*'
+  - 'memory.*'
 
-# Here it is possible to define which labels will be created for each metric, based on the name of the sample
 labels:
 
-# Supports wildecards. Multiple sets might match. In this case, they are applied in the same order they appear here.
-# Override is possible
   - '*':
+    - __name: '"os_" + name.replace(".", "_")'
     - user_id: user_id
-    - unit: unit
     - resource_id: resource_id
-    - instance_id: resource_id  # this is overridden for some metrics (e.g. network)
     - tenant_id: project_id
+    - instance_id: resource_id
+    - __grouping_key: '"resource_id".split(",")'
+    - __value: volume
 
   - disk.device.*:
     - instance_id: resource_id[:36]
@@ -23,6 +24,6 @@ labels:
     - instance_id: uuid4regex.search(resource_id).group(0)
 
   - ip.floating:
-    - instance_id: # empty value to unset the label
     - ip_address: resource_metadata['floating_ip_address']
     - operation: resource_metadata['event_type']
+
