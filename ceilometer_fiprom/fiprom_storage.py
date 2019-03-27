@@ -25,8 +25,35 @@ import traceback
 import sys
 from ceilometer.openstack.common import log
 from ceilometer_fiprom.fiprom_publisher import PrometheusPublisher
-import urlparse
+from oslo_config import cfg
 LOG = log.getLogger(__name__)
+
+
+OPTS = [
+    cfg.StrOpt('push_gateway',
+               help='URL for the push gateway where metrics will be pushed'
+                    'meters.'),
+    cfg.BoolOpt('dryrun',
+               default=False,
+               help='If True, do not make calls to the push gateway'),
+    cfg.StrOpt('log_file',
+               default=None,
+               help='If set, samples received and metrics created are logged to file'),
+    cfg.StrOpt('cache_file',
+               default='/tmp/fiprom.cache',
+               help='Internal instance labels cache file'),
+    cfg.StrOpt('names_file',
+               default=None,
+               help='Where to read id<->names mappings'),
+    cfg.StrOpt('tenant_group_file',
+               default=None,
+               help='Where to read tenant<->group mappings'),
+    cfg.StrOpt('converter_conf_file',
+               default=None,
+               help='Where to read configuration to map Ceilometer samples to Prometheus metrics')
+]
+
+cfg.CONF.register_opts(OPTS, group="fiprom")
 
 class PrometheusStorage(Connection):
 
@@ -34,21 +61,23 @@ class PrometheusStorage(Connection):
 
     def __init__(self, url):
         super(PrometheusStorage, self).__init__(url)
-        self.parsed_url = urlparse.urlparse(url)
 
-        params = urlparse.parse_qs(self.parsed_url.query)
-        self.logfile = params.get('log_file', [None])[0]
+
+
+        self.logfile = cfg.CONF.fiprom.log_file
+
         if self.logfile:
             LOG.info('Logging received events to %s', self.logfile)
 
+        # try to load the publisher
+        self.__get_publisher()
 
     def __get_publisher(self):
         if not self._publisher:
             try:
-                self._publisher = PrometheusPublisher(self.parsed_url)
+                self._publisher = PrometheusPublisher(None)
             except:
                 traceback.print_exc(file=sys.stdout)
-
         return self._publisher
 
     def record_metering_data(self, data):

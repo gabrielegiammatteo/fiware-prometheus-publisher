@@ -1,0 +1,7 @@
+
+[database]
+metering_connection=fiprom://
+
+[fiprom]
+push_gateway = http://localhost:9091/metrics/job/fiprom/infrastructure/fiware
+converter_conf_file = conf/fiprom_converter_conf.yaml

@@ -59,7 +59,6 @@ class PromMetric(object):
 class SampleConverter(FileConfiguration):
 
     def _parse(self, content):
-
         if content:
             self.conf = yaml.load(content, Loader=yaml.SafeLoader)
         else:

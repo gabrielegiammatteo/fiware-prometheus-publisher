@@ -19,9 +19,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import urllib
+import os
 from six.moves.urllib import parse as urlparse
 from ceilometer.openstack.common import log
+from oslo_config import cfg
 from ceilometer_fiprom.metric_enrichment import NamesEnricher, TenantGroupEnricher, InstanceEnricher
 from ceilometer_fiprom.prom_metric import SampleConverter
 from ceilometer_fiprom.util import HttpPublisher
@@ -34,35 +35,26 @@ class PrometheusPublisher(HttpPublisher):
 
     def __init__(self, parsed_url):
 
-        # Get configuration from query string
-        params = urlparse.parse_qs(parsed_url.query)
-        self.cache_file = self._get_param(params, 'cache_file', '/tmp/fiprom_cache', str)
-        self.names_file = self._get_param(params, 'names_file', '/opt/fiprom_names', str)
-        self.tenant_group_file = self._get_param(params, 'tenant_group_file', '/opt/fiprom_groups', str)
-        self.converter_conf_file = self._get_param(params, 'converter_conf_file', '/etc/ceilometer/fiprom_converter.yaml', str)
-        self.logfile = self._get_param(params, 'log_file', None, str)
-        self.dryrun = self._get_param(params, 'dryrun', False, bool)
+        self.pushgateway = cfg.CONF.fiprom.push_gateway
+        self.cache_file = cfg.CONF.fiprom.cache_file
+        self.names_file = cfg.CONF.fiprom.names_file
+        self.tenant_group_file = cfg.CONF.fiprom.tenant_group_file
+        self.converter_conf_file = cfg.CONF.fiprom.converter_conf_file
+        self.logfile = cfg.CONF.fiprom.log_file
+        self.dryrun = cfg.CONF.fiprom.dryrun
 
-        LOG.info('using cache_file at %s', self.cache_file)
-        LOG.info('using names_file at %s', self.names_file)
-        LOG.info('using tenant_group_file at %s', self.tenant_group_file)
-        LOG.info('using converter_conf_file at %s', self.converter_conf_file)
-        LOG.info('Logging received events to %s', self.logfile)
-        LOG.info('dryrun = %s', self.dryrun)
 
         self.converter = SampleConverter(self.converter_conf_file)
 
-        self.enrichers = [
-            # first use the Instance Enricher because it might adds new IDs that can be enriched by the other ones
-            InstanceEnricher(self.cache_file),
-            NamesEnricher(self.names_file),
-            TenantGroupEnricher(self.tenant_group_file)
-        ]
+        self.enrichers = [InstanceEnricher(self.cache_file)]
 
-        # remove used params from the query string
-        parsed_url = parsed_url._replace(query=urllib.urlencode(params))
-        self.pub_url = parsed_url._replace(query='')._replace(scheme='http')
-        super(PrometheusPublisher, self).__init__(parsed_url)
+        if self.names_file and os.path.isfile(self.names_file):
+            self.enrichers.append(NamesEnricher(self.names_file))
+
+        if self.tenant_group_file and os.path.isfile(self.tenant_group_file):
+            self.enrichers.append(TenantGroupEnricher(self.tenant_group_file))
+
+        super(PrometheusPublisher, self).__init__(urlparse.urlparse(self.pushgateway))
 
 
     def publish_samples(self, context, samples):
@@ -96,7 +88,7 @@ class PrometheusPublisher(HttpPublisher):
 
             if self.logfile:
                 with open(self.logfile, 'a+') as c:
-                    c.write('{0}\n{1}\n'.format(urlparse.urlunparse(puburl), pubcon))
+                    c.write('{0}\n{1}\n'.format(puburl, pubcon))
 
         for e in self.enrichers:
             e.save_if_needed()
@@ -109,8 +101,8 @@ class PrometheusPublisher(HttpPublisher):
 
     def __build_publication_url(self, metric):
         grouping_keys = metric.labels['__grouping_key']
-        pubpath = self.pub_url.path +'/' + '/'.join(['{0}/{1}'.format(k, metric.labels[k]) for k in grouping_keys if k in metric.labels])
-        return self.pub_url._replace(path=pubpath)
+        return self.pushgateway +'/' + '/'.join(['{0}/{1}'.format(k, metric.labels[k]) for k in grouping_keys if k in metric.labels])
+
 
     @staticmethod
     def publish_events(events):

@@ -51,7 +51,7 @@ class FileConfiguration(object):
             self.save()
 
     def needs_reload(self):
-        if not os.path.isfile(self._file):
+        if not self._file or not os.path.isfile(self._file):
             return False
 
         if self.__last_update < os.stat(self._file).st_mtime:
@@ -62,11 +62,11 @@ class FileConfiguration(object):
             self.reload()
 
     def reload(self):
-        self._parse(self._get_file_content())
-        self.__last_update = os.stat(self._file).st_mtime if os.path.isfile(self._file) else 0
+            self._parse(self._get_file_content())
+            self.__last_update = os.stat(self._file).st_mtime if self._file and os.path.isfile(self._file) else 0
 
     def _get_file_content(self):
-        if not os.path.isfile(self._file):
+        if not self._file or not os.path.isfile(self._file):
             return None
         LOG.debug('File %s reloaded', self._file)
         with open(self._file, 'rb') as file:
@@ -180,17 +180,17 @@ class HttpPublisher(PublisherBase):
             return
         self._do_post(json.dumps(data))
 
-    def _do_post(self, pub_url, data):
+    def _do_post(self, puburl, data):
         LOG.debug('Message: %s', data)
         try:
-            res = self.session.post(urlparse.urlunparse(pub_url), data=data,
+            res = self.session.post(puburl, data=data,
                                     headers=self.HEADERS, timeout=self.timeout,
                                     auth=self.client_auth,
                                     cert=self.client_cert,
                                     verify=self.verify_ssl)
             res.raise_for_status()
             LOG.debug('Message posting to %s: status code %d.',
-                      urlparse.urlunparse(pub_url), res.status_code)
+                      puburl, res.status_code)
         except requests.exceptions.HTTPError:
             LOG.exception('Status Code: %(code)s. '
                           'Failed to dispatch message: %(data)s' %
