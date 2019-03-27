@@ -1,3 +1,12 @@
 language: python
 python:
   - "2.7"
+
+deploy:
+  provider: pypi
+  server: "https://test.pypi.org/legacy/"
+  user: "testing.gabriele.giammatteo"
+  password:
+    secure: "T6lfU1P/hOGTUMo9nXBPMcMKlcQ4MOT8pdRZMxC4QCWB+hho9RFv5qCm9Uf+eJqR9ZgbDyxjhMeDOpMC5iYgEA8EJe4GO6NzlvCITB9kmME/KO2xdntLADB10UwlQhH8xGleFFkWWCk7dZCBDm4JnYM308FEy2SObcawVtieP4Wna42t4yhgSJ2icfPtzFZQTJKeEFn59ZZNLxgIOo8y0NxKEHnwS07m0rJVznl6SOK5/eWFemmfK9+otIp9DM5QjjBef968XTjwFX60XISkic79b9nnqkVWxZCn/9LfOB5EudvLWO785Ry+1I9coirkhLX/FgkJNMdwZMZsEh8t0kDTWD2TOBooV3CJm2erlU2P1AKTu533bZVcccJPZ1niLrSOE4IaSMp9Vp+6zMIyfIpvOnTrQU5w17b2kecGX0OlVdqyIBOpZBXW4d9feOUGLjjqW9bi+wH7hM40dHm4gdZJYYikS4bA/xgFaEdaGM6F5BHLXtrxxM0Y0fn/Y/sQ2JFZCBBpKHkY461UCG3PkrThIHVjA09sT0rML8WbPGlDrkXfhqyGTtW12U4ID1AOBVcYQqIiGhgsVGHoStyLA3AHtXZMefxnLWiXGbx73YEykFVBocr7rBiaTP+e/CZUzUHEPLJYApFuEK18DMoc4/pdxVhLFmqjXEoWvzvpHmY="
+  skip_existing: true
+  skip_cleanup: true
