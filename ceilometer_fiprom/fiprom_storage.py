@@ -62,12 +62,7 @@ class PrometheusStorage(Connection):
     def __init__(self, url):
         super(PrometheusStorage, self).__init__(url)
 
-
-
         self.logfile = cfg.CONF.fiprom.log_file
-
-        if self.logfile:
-            LOG.info('Logging received events to %s', self.logfile)
 
         # try to load the publisher
         self.__get_publisher()

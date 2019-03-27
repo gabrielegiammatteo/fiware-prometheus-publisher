@@ -43,6 +43,10 @@ class PrometheusPublisher(HttpPublisher):
         self.logfile = cfg.CONF.fiprom.log_file
         self.dryrun = cfg.CONF.fiprom.dryrun
 
+        LOG.info('fiprom publisher initialized with config:')
+        for o in cfg.CONF.fiprom.iteritems():
+            LOG.info('    %s = %s', o[0], o[1])
+
 
         self.converter = SampleConverter(self.converter_conf_file)
 
