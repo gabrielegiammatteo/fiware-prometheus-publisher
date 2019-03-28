@@ -23,6 +23,7 @@ script:
 before_deploy:
 
   # prepare Docker image
+  - ls -lath
   - docker pull "${IMAGE_NAME}:develop" || true
   - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
   - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
