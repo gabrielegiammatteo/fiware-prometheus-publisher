@@ -11,7 +11,7 @@ RUN wget https://github.com/openstack/ceilometer/archive/2015.1.1.zip && unzip 2
 RUN pip install 'pbr==0.11.0' testrepository
 RUN cd ceilometer-2015.1.1 && pip install .
 
-COPY dist/ .
+COPY dist/ /
 RUN pip install --no-cache fiware_prometheus_publisher*.whl
 
 ENTRYPOINT ["ceilometer-collector", "--config-file", "/ceilometer.conf"]
