@@ -1,7 +1,33 @@
 
 [database]
+# to enable the fiprom publisher, set it either in "connection" or "metering_connection" in the databse group
 metering_connection=fiprom://
 
+#
+# fiprom configuration options
+#
+
 [fiprom]
+
+# URL of the Push Gateway where metrics created will be publihsed
 push_gateway = http://localhost:9091/metrics/job/fiprom/infrastructure/fiware
-converter_conf_file = conf/fiprom_converter_conf.yaml
+
+# Configuration file for the conversion of Ceilometer samples to Prometheus metrics
+converter_conf_file =
+
+# If set, logs samples received and metrics created in this file
+log_file =
+
+# If true, do not  make the call to the Push Gateway
+dryrun = False
+
+# Customize the location of the labels cache
+cache_file=/tmp/fiprom.cache
+
+# Mapping file for names of VMs, hosts and users
+names_file =
+
+# Mapping file for tenant groups
+tenant_group_file =
+
+

@@ -1,4 +1,7 @@
 
+# List of enabled samples. For each sample received fiprom looks for a match of the sample name in this list,
+# if not found the sample is discarded.
+# Filename matching wildecards are supported (e.g. 'cpu*' will match all samples names that starts with 'cpu'
 enabled:
   - '*'
   - 'network.*'
@@ -6,16 +9,41 @@ enabled:
   - 'disk.*'
   - 'memory.*'
 
+
+# List of mapping rules to set labels of Prometheus metrics. Rules are organized in rule-sets that are applied only
+# if the name of the rule-set matches the name of the sample (see above comment). Rule-sets and rules are evaluated in
+# the same order they appear.
+#
+# Each rule has the form:
+#   <prometheus label>: <python expression>
+#
+# where <python expression> is an expression evaluated at runtime by the Python eval() function. The scope available
+# to the function includes all attributes of the Sample object representing the Ceilomter sample, all the labels sets
+# so far and a regex that matches Openstack IDs. For more details, see the code at
+# ceilometer_fiprom/prom_metric.py::SampleConverter.get_prom_metric()
+#
+# Labels starting with "__" are for special labels for internal use only and will be not published in Prometheus
 labels:
 
+  # rule-set matching all metrics. Useful to express default rules that can be overriden by more specific rules in
+  # following rule-sets.
   - '*':
+    # special label that is used to assign a name to the metric.
     - __name: '"os_" + name.replace(".", "_")'
+
+    # special label used to assign a value to the metric
+    - __value: volume
+
     - user_id: user_id
     - resource_id: resource_id
     - tenant_id: project_id
     - instance_id: resource_id
+
+    # special label used to define the list of labels that will be used as grouping key publishing the metric on the
+    # Push Gateway. Putting it simply, publishing a metric will override all previous metrics with the same name and
+    # the same grouping key published before. Read more here: https://github.com/prometheus/pushgateway
     - __grouping_key: '"resource_id".split(",")'
-    - __value: volume
+
 
   - disk.device.*:
     - instance_id: resource_id[:36]
