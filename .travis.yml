@@ -5,10 +5,11 @@ sudo: required
 services: docker
 
 env:
-  - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
-  - REGISTRY_USER=gabrielegiammatteo
-  # REGISTRY_PASS=...
-  - secure: "F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo="
+  global:
+    - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
+    - REGISTRY_USER=gabrielegiammatteo
+    # REGISTRY_PASS=...
+    - secure: "F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo="
 
 python:
 - 2.7
@@ -16,19 +17,23 @@ python:
 install: true
 
 script:
-- python setup.py sdist bdist_wheel
+  - python setup.py sdist bdist_wheel
 
 
 before_deploy:
-   - docker pull "${IMAGE_NAME}:develop" || true
-   - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
-   - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
-   - git_sha="$(git rev-parse --short HEAD)"
-   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
-   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${git_sha}-develop"
+
+  # prepare Docker image
+  - docker pull "${IMAGE_NAME}:develop" || true
+  - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
+  - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+  - git_sha="$(git rev-parse --short HEAD)"
+  - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
+  - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${git_sha}-develop"
 
 
 deploy:
+
+  # publish on PYPI testing
   - provider: pypi
     server: https://test.pypi.org/legacy/
     user: testing.gabriele.giammatteo
@@ -38,6 +43,7 @@ deploy:
     skip_existing: true
     skip_cleanup: true
 
+  # publish on Docker HUB
   - provider: script
     script: docker push "${IMAGE_NAME}:develop" && docker push "${IMAGE_NAME}:${git_sha}-develop"
 
