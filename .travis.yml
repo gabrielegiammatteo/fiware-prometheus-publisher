@@ -22,8 +22,7 @@ deploy:
 matrix:
   include:
     - python: '2.7'
-      -
-    # Docker dev image
+
     - sudo: required
       services:
         - docker
