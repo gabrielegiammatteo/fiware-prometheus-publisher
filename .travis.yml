@@ -1,11 +1,13 @@
 language: python
+
 python:
 - 2.7
-install:
-- echo "nothing to do"
+
+install: []
+
 script:
-- echo "nothing to do"
-- 
+- python setup.py sdist bdist_wheel
+
 deploy:
   provider: pypi
   server: https://test.pypi.org/legacy/
@@ -15,3 +17,41 @@ deploy:
   distributions: sdist bdist_wheel
   skip_existing: true
   skip_cleanup: true
+
+
+matrix:
+  include:
+    - python: '2.7'
+      -
+    # Docker dev image
+    - sudo: required
+      services:
+        - docker
+      env:
+        - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
+        - REGISTRY_USER=gabrielegiammatteo
+        # REGISTRY_PASS=...
+        - secure: "F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo="
+
+      #before_install:
+      #  - sudo apt-get update
+      #  - sudo apt-get install -y -o Dpkg::Options::="--force-confold" docker-engine
+
+      install: []
+
+      before_script:
+        - docker pull "${IMAGE_NAME}:develop" || true
+
+      script:
+        - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
+
+      before_deploy:
+        - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+        - git_sha="$(git rev-parse --short HEAD)"
+        - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
+        - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${git_sha}-develop"
+      deploy:
+        provider: script
+        script: docker push "${IMAGE_NAME}:develop" && docker push "${IMAGE_NAME}:${git_sha}-develop"
+        on:
+          branch: develop
