@@ -1,55 +1,43 @@
 language: python
 
+sudo: required
+
+services: docker
+
+env:
+  - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
+  - REGISTRY_USER=gabrielegiammatteo
+  # REGISTRY_PASS=...
+  - secure: "F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo="
+
 python:
 - 2.7
 
-install: []
+install: true
 
 script:
 - python setup.py sdist bdist_wheel
 
+
+before_deploy:
+   - docker pull "${IMAGE_NAME}:develop" || true
+   - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
+   - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+   - git_sha="$(git rev-parse --short HEAD)"
+   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
+   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${git_sha}-develop"
+
+
 deploy:
-  provider: pypi
-  server: https://test.pypi.org/legacy/
-  user: testing.gabriele.giammatteo
-  password:
-    secure: T1ISjTJYedUw+NW3WXmgzehFH6TzEJrhuWnDqGDbbLz9TUo9phK+SGO74+O32KonGKqdv8JXttrGFZoY4N2W5QUVKWL7lDUoQaUsjFnKEN4qtSsWN7jcocKEEJzSrxAtG8m7btKKXowBxEGn2980OtBTVz+Ts/5RzPrtGRavoVj3VRjhuhn8wu1gKdw8/fe8ipb3LSveeSQMsU5IOsw2xG+NzebTmx3XS/RHcQSmsUnTeTIzgW+dUnUr7TJ5RamICOiUav73S7LBUH7P4pqdu2eFCBFGM8nc0lKB0ET9tKXS01FP9PXCKEG7duWizkEoYKhPp6+41GJyY29fQQQiNT87VzRqnQPS56tEUOns9uxzU9l4r+/lEf532qMJltXkxgXlUMIsMi42vxkJYa1XziehEzZ7gJCckNeko7dDWiwwOmYVhdp1HwWbmlDUmh3XoHzjdilWwI2fnBzqbHQohgpEin1A8HW47e8ZLUPb1FcpFTIolatzwYT992UkRrPUoVPF76a0kkIfREmNvq/QXYt1AXu/25FgHhZscGSm441DdWJCIuWjnmFy2SU0CGvuiZYRTmKWD9JCxOW3zWGNpJUPSyf+UVJBG6s/iFhtk/LhJ3eAF2blrpIlapMunfHZ1knLu5GGr4IA9UspcKIBotwugSCv4NfFMayojHFhhQM=
-  distributions: sdist bdist_wheel
-  skip_existing: true
-  skip_cleanup: true
+  - provider: pypi
+    server: https://test.pypi.org/legacy/
+    user: testing.gabriele.giammatteo
+    password:
+      secure: T1ISjTJYedUw+NW3WXmgzehFH6TzEJrhuWnDqGDbbLz9TUo9phK+SGO74+O32KonGKqdv8JXttrGFZoY4N2W5QUVKWL7lDUoQaUsjFnKEN4qtSsWN7jcocKEEJzSrxAtG8m7btKKXowBxEGn2980OtBTVz+Ts/5RzPrtGRavoVj3VRjhuhn8wu1gKdw8/fe8ipb3LSveeSQMsU5IOsw2xG+NzebTmx3XS/RHcQSmsUnTeTIzgW+dUnUr7TJ5RamICOiUav73S7LBUH7P4pqdu2eFCBFGM8nc0lKB0ET9tKXS01FP9PXCKEG7duWizkEoYKhPp6+41GJyY29fQQQiNT87VzRqnQPS56tEUOns9uxzU9l4r+/lEf532qMJltXkxgXlUMIsMi42vxkJYa1XziehEzZ7gJCckNeko7dDWiwwOmYVhdp1HwWbmlDUmh3XoHzjdilWwI2fnBzqbHQohgpEin1A8HW47e8ZLUPb1FcpFTIolatzwYT992UkRrPUoVPF76a0kkIfREmNvq/QXYt1AXu/25FgHhZscGSm441DdWJCIuWjnmFy2SU0CGvuiZYRTmKWD9JCxOW3zWGNpJUPSyf+UVJBG6s/iFhtk/LhJ3eAF2blrpIlapMunfHZ1knLu5GGr4IA9UspcKIBotwugSCv4NfFMayojHFhhQM=
+    distributions: sdist bdist_wheel
+    skip_existing: true
+    skip_cleanup: true
 
+  - provider: script
+    script: docker push "${IMAGE_NAME}:develop" && docker push "${IMAGE_NAME}:${git_sha}-develop"
 
-matrix:
-  include:
-    - python: '2.7'
-
-    - sudo: required
-      services:
-        - docker
-      env:
-        - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
-        - REGISTRY_USER=gabrielegiammatteo
-        # REGISTRY_PASS=...
-        - secure: "F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo="
-
-      #before_install:
-      #  - sudo apt-get update
-      #  - sudo apt-get install -y -o Dpkg::Options::="--force-confold" docker-engine
-
-      install: []
-
-      before_script:
-        - docker pull "${IMAGE_NAME}:develop" || true
-
-      script:
-        - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
-
-      before_deploy:
-        - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
-        - git_sha="$(git rev-parse --short HEAD)"
-        - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
-        - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${git_sha}-develop"
-
-      deploy:
-        provider: script
-        script: docker push "${IMAGE_NAME}:develop" && docker push "${IMAGE_NAME}:${git_sha}-develop"
