@@ -3,12 +3,14 @@ jobs:
     - stage: build
       language: python
       python: 2.7
-      sudo: required
-      services: docker
       install: true
       script: python setup.py sdist bdist_wheel
 
     - stage: deploy
+      language: python
+      python: 2.7
+      sudo: required
+      services: docker
       env:
         global:
           - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
@@ -35,6 +37,10 @@ jobs:
           script: docker push "${IMAGE_NAME}:develop" && docker push "${IMAGE_NAME}:${git_sha}-develop"
 
     -
+      language: python
+      python: 2.7
+      sudo: required
+      services: docker
       deploy:
       # publish on PYPI testing
         - provider: pypi
