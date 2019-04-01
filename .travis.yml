@@ -3,7 +3,9 @@ python: 2.7
 sudo: required
 services: docker
 install: true
+
 script: python setup.py sdist bdist_wheel
+
 env:
   global:
     - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
@@ -13,9 +15,6 @@ env:
 
 before_deploy:
   - version=$(sed -nE "s/version='(.*)'.*/\1/p" setup.py | tr -d '[:space:]')
-  - echo "$version"
-  # prepare the Docker development image
-  - ls -lath **/*
   - docker pull "${IMAGE_NAME}:develop" || true
   - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
   - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
@@ -23,15 +22,20 @@ before_deploy:
   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${version}"
 
 deploy:
-  # publish development image on Docker HUB
+
+  # publish Docker development image
   - provider: script
     script: docker push "${IMAGE_NAME}:develop"
+    on:
+      all_branches: true
 
+  # publish Docker release image if it is a tag commit
   - provider: script
     script: docker push "${IMAGE_NAME}:${version}"
     on:
       tags: true
 
+  # publish artifact on PYPITest
   - provider: pypi
     server: https://test.pypi.org/legacy/
     user: testing.gabriele.giammatteo
@@ -39,7 +43,10 @@ deploy:
       secure: T1ISjTJYedUw+NW3WXmgzehFH6TzEJrhuWnDqGDbbLz9TUo9phK+SGO74+O32KonGKqdv8JXttrGFZoY4N2W5QUVKWL7lDUoQaUsjFnKEN4qtSsWN7jcocKEEJzSrxAtG8m7btKKXowBxEGn2980OtBTVz+Ts/5RzPrtGRavoVj3VRjhuhn8wu1gKdw8/fe8ipb3LSveeSQMsU5IOsw2xG+NzebTmx3XS/RHcQSmsUnTeTIzgW+dUnUr7TJ5RamICOiUav73S7LBUH7P4pqdu2eFCBFGM8nc0lKB0ET9tKXS01FP9PXCKEG7duWizkEoYKhPp6+41GJyY29fQQQiNT87VzRqnQPS56tEUOns9uxzU9l4r+/lEf532qMJltXkxgXlUMIsMi42vxkJYa1XziehEzZ7gJCckNeko7dDWiwwOmYVhdp1HwWbmlDUmh3XoHzjdilWwI2fnBzqbHQohgpEin1A8HW47e8ZLUPb1FcpFTIolatzwYT992UkRrPUoVPF76a0kkIfREmNvq/QXYt1AXu/25FgHhZscGSm441DdWJCIuWjnmFy2SU0CGvuiZYRTmKWD9JCxOW3zWGNpJUPSyf+UVJBG6s/iFhtk/LhJ3eAF2blrpIlapMunfHZ1knLu5GGr4IA9UspcKIBotwugSCv4NfFMayojHFhhQM=
     distributions: sdist bdist_wheel
     skip_existing: true
+    on:
+      all_branches: true
 
+  # publish artifact on PYPI if it is a tag commit
   - provider: pypi
     user: gabriele.giammatteo
     password:
