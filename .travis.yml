@@ -1,54 +1,41 @@
-jobs:
-  include:
-    - stage: build
-      language: python
-      python: 2.7
-      install: true
-      script: python setup.py sdist bdist_wheel
+language: python
+python: 2.7
+sudo: required
+services: docker
+install: true
+script: python setup.py sdist bdist_wheel
+env:
+  global:
+    - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
+    - REGISTRY_USER=gabrielegiammatteo
+    # REGISTRY_PASS=...
+    - secure: F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo=
 
-    - stage: deploy
-      language: python
-      python: 2.7
-      sudo: required
-      services: docker
-      env:
-        global:
-          - IMAGE_NAME=gabrielegiammatteo/fiware-prometheus-publisher
-          - REGISTRY_USER=gabrielegiammatteo
-          # REGISTRY_PASS=...
-          - secure: F7skl6SIZq0WyM2q7BtaAiqxNaOq/g36bFhhHi/XBbx1pILx7Ir9pP4OV7jq7ECbfnEF5XmaT5hRpBUFkijWG2ZlptCwJkBmSrYbR8Gff6bcuOAgHJOnvhWhpwH5fbV+Yl6uFLgUczqPnRiyb0NF7COlddm9dQorAAdMHAcQL3l6UeMBVghLOnTIiI26uE7X6QuyXUcJl7OSvuXCfYRHdGEmtrU/FgQOjaitHimVC1d4ZllS19nM96P5uVLZcCf07qEjKZt1igqHxc9hePcqg/+Tmv7muC3+QizuAUVa/dxk585RHIQYS0laPa2X05fKxGWujzA5jhlY8K6unayC5R0Z9L6FUG0XShyeh4SthZtDJ985fd2sogvwbKRDVrWR+0tFMRERrilyBKYho1j8hkGubCKJdkBZLs7NY+WhxmJp/g3V4MRxGcwJ3saFYqj8OdTrdzDYilS9JdY2iBYWARqZN7yDY2eB3NIBliU6haU1ZXjWoNlObPP0ASUMg2S4pcQ99k1zs5as0Qeqt8qqfHNZaBAhs59/lFllmW9fU2thIkKhsazL7/hcmj6wXWU79GFqm1xQ20YwkHnxCfKY2twRCBSTg9EN8UKM6/ZCScq2ivystvstxsy6m+E5ERWlk3u7Z5BqKLCudu+yBcac9JGTXi7i4vmMizoyZZKWFpo=
+before_deploy:
+  - version=$(sed -nE "s/version='(.*)'.*/\1/p" setup.py | tr -d '[:space:]')
+  - echo "$version"
+  # prepare the Docker development image
+  - ls -lath **/*
+  - docker pull "${IMAGE_NAME}:develop" || true
+  - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
+  - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
+  - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
+  - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${version)"
 
-      before_deploy:
-        - python setup.py bdist_wheel
-        - version=$(sed -nE "s/version='(.*)'.*/\1/p" setup.py)
-        - echo "$version"
-        # prepare the Docker development image
-        - ls -lath **/*
-        - docker pull "${IMAGE_NAME}:develop" || true
-        - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
-        - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
-        - git_sha="$(git rev-parse --short HEAD)"
-        - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
-        - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${git_sha}-develop"
+deploy:
+  # publish development image on Docker HUB
+  - provider: script
+    script: docker push "${IMAGE_NAME}:develop"
 
-      deploy:
-        # publish development image on Docker HUB
-        - provider: script
-          script: docker push "${IMAGE_NAME}:develop" && docker push "${IMAGE_NAME}:${git_sha}-develop"
+  - provider: script
+    script: docker push "${IMAGE_NAME}:${version}"
+    on:
+      tags: true
 
-    -
-      language: python
-      python: 2.7
-      sudo: required
-      services: docker
-      deploy:
-      # publish on PYPI testing
-        - provider: pypi
-          server: https://test.pypi.org/legacy/
-          user: testing.gabriele.giammatteo
-          password:
-            secure: T1ISjTJYedUw+NW3WXmgzehFH6TzEJrhuWnDqGDbbLz9TUo9phK+SGO74+O32KonGKqdv8JXttrGFZoY4N2W5QUVKWL7lDUoQaUsjFnKEN4qtSsWN7jcocKEEJzSrxAtG8m7btKKXowBxEGn2980OtBTVz+Ts/5RzPrtGRavoVj3VRjhuhn8wu1gKdw8/fe8ipb3LSveeSQMsU5IOsw2xG+NzebTmx3XS/RHcQSmsUnTeTIzgW+dUnUr7TJ5RamICOiUav73S7LBUH7P4pqdu2eFCBFGM8nc0lKB0ET9tKXS01FP9PXCKEG7duWizkEoYKhPp6+41GJyY29fQQQiNT87VzRqnQPS56tEUOns9uxzU9l4r+/lEf532qMJltXkxgXlUMIsMi42vxkJYa1XziehEzZ7gJCckNeko7dDWiwwOmYVhdp1HwWbmlDUmh3XoHzjdilWwI2fnBzqbHQohgpEin1A8HW47e8ZLUPb1FcpFTIolatzwYT992UkRrPUoVPF76a0kkIfREmNvq/QXYt1AXu/25FgHhZscGSm441DdWJCIuWjnmFy2SU0CGvuiZYRTmKWD9JCxOW3zWGNpJUPSyf+UVJBG6s/iFhtk/LhJ3eAF2blrpIlapMunfHZ1knLu5GGr4IA9UspcKIBotwugSCv4NfFMayojHFhhQM=
-          distributions: sdist bdist_wheel
-          skip_existing: true
-          skip_cleanup: true
-
+  - provider: pypi
+    server: https://test.pypi.org/legacy/
+    user: testing.gabriele.giammatteo
+    password:
+      secure: T1ISjTJYedUw+NW3WXmgzehFH6TzEJrhuWnDqGDbbLz9TUo9phK+SGO74+O32KonGKqdv8JXttrGFZoY4N2W5QUVKWL7lDUoQaUsjFnKEN4qtSsWN7jcocKEEJzSrxAtG8m7btKKXowBxEGn2980OtBTVz+Ts/5RzPrtGRavoVj3VRjhuhn8wu1gKdw8/fe8ipb3LSveeSQMsU5IOsw2xG+NzebTmx3XS/RHcQSmsUnTeTIzgW+dUnUr7TJ5RamICOiUav73S7LBUH7P4pqdu2eFCBFGM8nc0lKB0ET9tKXS01FP9PXCKEG7duWizkEoYKhPp6+41GJyY29fQQQiNT87VzRqnQPS56tEUOns9uxzU9l4r+/lEf532qMJltXkxgXlUMIsMi42vxkJYa1XziehEzZ7gJCckNeko7dDWiwwOmYVhdp1HwWbmlDUmh3XoHzjdilWwI2fnBzqbHQohgpEin1A8HW47e8ZLUPb1FcpFTIolatzwYT992UkRrPUoVPF76a0kkIfREmNvq/QXYt1AXu/25FgHhZscGSm441DdWJCIuWjnmFy2SU0CGvuiZYRTmKWD9JCxOW3zWGNpJUPSyf+UVJBG6s/iFhtk/LhJ3eAF2blrpIlapMunfHZ1knLu5GGr4IA9UspcKIBotwugSCv4NfFMayojHFhhQM=
+    distributions: sdist bdist_wheel
+    skip_existing: true
