@@ -14,4 +14,4 @@ RUN cd ceilometer-2015.1.1 && pip install .
 COPY dist/ /
 RUN pip install --no-cache fiware_prometheus_publisher*.whl
 
-ENTRYPOINT ["ceilometer-collector", "--config-file", "/ceilometer.conf"]
+ENTRYPOINT ["ceilometer-collector", "--config-file", "/config/ceilometer.conf"]
