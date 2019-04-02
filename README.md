@@ -14,6 +14,8 @@ pip install fiware-prometheus-publisher
 An alternative way is to install the component in a Python virtualenv. In this case, also Ceilometer must be installed and executed from the virtualenv.
 
 ```bash
+virtualenv fipromvenv
+source fipromvenv/bin/activate
 export PBR_VERSION=0.10.0
 pip install -U 'pbr==0.11.0' testrepository setuptools
 

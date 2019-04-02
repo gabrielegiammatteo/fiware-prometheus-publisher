@@ -196,3 +196,14 @@ class HttpPublisher(PublisherBase):
                           'Failed to dispatch message: %(data)s' %
                           {'code': res.status_code, 'data': data})
 
+    def _do_delete(self, url):
+        try:
+            res = self.session.delete(url,
+                                    headers=self.HEADERS, timeout=self.timeout,
+                                    auth=self.client_auth,
+                                    cert=self.client_cert,
+                                    verify=self.verify_ssl)
+        except requests.exceptions.HTTPError:
+            LOG.exception('Status Code: %(code)s.' %
+                          {'code': res.status_code})
+

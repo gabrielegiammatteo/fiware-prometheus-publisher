@@ -50,7 +50,10 @@ OPTS = [
                help='Where to read tenant<->group mappings'),
     cfg.StrOpt('converter_conf_file',
                default=None,
-               help='Where to read configuration to map Ceilometer samples to Prometheus metrics')
+               help='Where to read configuration to map Ceilometer samples to Prometheus metrics'),
+    cfg.IntOpt('stale_timeout',
+               default=3600,
+               help='Timeout to consider a metric stale and will be removed from the Push Gateway')
 ]
 
 cfg.CONF.register_opts(OPTS, group="fiprom")

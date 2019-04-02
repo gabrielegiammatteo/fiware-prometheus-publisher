@@ -24,6 +24,7 @@ from six.moves.urllib import parse as urlparse
 from ceilometer.openstack.common import log
 from oslo_config import cfg
 from ceilometer_fiprom.metric_enrichment import NamesEnricher, TenantGroupEnricher, InstanceEnricher
+from ceilometer_fiprom.metrics_removal import StaleMetricsRemoval
 from ceilometer_fiprom.prom_metric import SampleConverter
 from ceilometer_fiprom.util import HttpPublisher
 
@@ -42,6 +43,7 @@ class PrometheusPublisher(HttpPublisher):
         self.converter_conf_file = cfg.CONF.fiprom.converter_conf_file
         self.logfile = cfg.CONF.fiprom.log_file
         self.dryrun = cfg.CONF.fiprom.dryrun
+        self.stale_timeout = cfg.CONF.fiprom.stale_timeout
 
         LOG.info('fiprom publisher initialized with config:')
         for o in cfg.CONF.fiprom.iteritems():
@@ -57,6 +59,9 @@ class PrometheusPublisher(HttpPublisher):
 
         if self.tenant_group_file and os.path.isfile(self.tenant_group_file):
             self.enrichers.append(TenantGroupEnricher(self.tenant_group_file))
+
+
+        self.stale_metrics_removal = StaleMetricsRemoval(self, self.stale_timeout)
 
         super(PrometheusPublisher, self).__init__(urlparse.urlparse(self.pushgateway))
 
@@ -83,12 +88,14 @@ class PrometheusPublisher(HttpPublisher):
             for e in self.enrichers:
                 e.enrichLabels(m)
 
-
             puburl = self.__build_publication_url(m)
             pubcon = self.__build_publication_content(m)
 
+            LOG.info('Publishing %s, %s, %s', m.name, ['{0}={1}'.format(k, m.labels[k]) for k in m.labels['__grouping_key'] if k in m.labels], m.value)
+
             if not self.dryrun:
                 self._do_post(puburl, pubcon)
+                self.stale_metrics_removal.cache_post({k:m.labels[k] for k in m.labels['__grouping_key']})
 
             if self.logfile:
                 with open(self.logfile, 'a+') as c:
@@ -96,6 +103,8 @@ class PrometheusPublisher(HttpPublisher):
 
         for e in self.enrichers:
             e.save_if_needed()
+
+        self.stale_metrics_removal.garbage_collector()
 
     def __build_publication_content(self, metric):
         keys = metric.labels.keys()
@@ -105,8 +114,7 @@ class PrometheusPublisher(HttpPublisher):
 
     def __build_publication_url(self, metric):
         grouping_keys = metric.labels['__grouping_key']
-        return self.pushgateway +'/' + '/'.join(['{0}/{1}'.format(k, metric.labels[k]) for k in grouping_keys if k in metric.labels])
-
+        return self.pushgateway + '/' + '/'.join(['{0}/{1}'.format(k, metric.labels[k]) for k in grouping_keys if k in metric.labels])
 
     @staticmethod
     def publish_events(events):

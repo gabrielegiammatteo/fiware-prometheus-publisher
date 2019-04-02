@@ -37,13 +37,23 @@ labels:
     - user_id: user_id
     - resource_id: resource_id
     - tenant_id: project_id
-    - instance_id: resource_id
+
 
     # special label used to define the list of labels that will be used as grouping key publishing the metric on the
     # Push Gateway. Putting it simply, publishing a metric will override all previous metrics with the same name and
     # the same grouping key published before. Read more here: https://github.com/prometheus/pushgateway
     - __grouping_key: '"resource_id".split(",")'
 
+
+  - cpu*:
+    # the instance_id label is used as key for the Instance Enricher (see ceilometer_fiprom/metric_enricherment.py)
+    - instance_id: resource_id
+
+  - memory*:
+      - instance_id: resource_id
+
+  - disk*:
+      - instance_id: resource_id
 
   - disk.device.*:
     - instance_id: resource_id[:36]
