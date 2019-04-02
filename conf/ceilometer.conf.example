@@ -30,4 +30,7 @@ names_file =
 # Mapping file for tenant groups
 tenant_group_file =
 
+# Time in seconds after which a metric is considered stale (and will be removed from the PushGateway). Needs to be
+# higher of the Ceilometer polling time.
+stale_timeout = 3600
 
