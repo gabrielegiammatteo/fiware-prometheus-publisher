@@ -3,11 +3,11 @@
 # if not found the sample is discarded.
 # Filename matching wildecards are supported (e.g. 'cpu*' will match all samples names that starts with 'cpu'
 enabled:
-  - '*'
   - 'network.*'
   - 'cpu*'
   - 'disk.*'
   - 'memory.*'
+  - 'compute.node.cpu.percent'
 
 
 # List of mapping rules to set labels of Prometheus metrics. Rules are organized in rule-sets that are applied only
@@ -65,3 +65,6 @@ labels:
     - ip_address: resource_metadata['floating_ip_address']
     - operation: resource_metadata['event_type']
 
+  - compute.node.cpu.percent:
+      - __value: resource_metadata['value']
+      - host: resource_metadata['host']
