@@ -92,7 +92,7 @@ class SampleConverter(FileConfiguration):
         elif s.type == sample.TYPE_GAUGE:
             m.type = "gauge"
         else:
-            LOG.warning('Dropping sample "%s" because type is not supported: %s', s.name, s.type)
+            LOG.error('Dropping sample "%s" because type is not supported: %s', s.name, s.type)
             return None
 
         label_specs = self._load_rules(s.name)
@@ -108,8 +108,9 @@ class SampleConverter(FileConfiguration):
                     value = eval(v, globals)
                     m.add_label(k, value)
             except Exception as ex:
-                LOG.warning('Error creating label "%s" for metric "%s". %s: %s',
-                            k, m.labels.get('__name', None), ex.__class__.__name__, ex.message)
+                LOG.error('Dropping sample "%s" because an error occurred creating label "%s" for metric "%s". %s: %s',
+                            s.name, k, m.labels.get('__name', None), ex.__class__.__name__, ex.message)
+                return None
 
         m.name = m.labels['__name']
         m.value = m.labels['__value']
