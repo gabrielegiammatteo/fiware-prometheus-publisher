@@ -8,6 +8,7 @@ enabled:
   - 'disk.*'
   - 'memory.*'
   - 'compute.node.cpu.percent'
+  - 'instance'
 
 
 # List of mapping rules to set labels of Prometheus metrics. Rules are organized in rule-sets that are applied only
@@ -68,3 +69,7 @@ labels:
   - compute.node.cpu.percent:
       - __value: resource_metadata['value']
       - host: resource_metadata['host']
+
+  - instance:
+      - instance_id: resource_id
+      - status: resource_metadata['status']
