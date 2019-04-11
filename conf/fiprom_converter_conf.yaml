@@ -9,6 +9,8 @@ enabled:
   - 'memory.*'
   - 'compute.node.*'
   - 'instance'
+  - 'vcpus'
+  - 'memory'
 
 
 # List of mapping rules to set labels of Prometheus metrics. Rules are organized in rule-sets that are applied only
@@ -73,3 +75,11 @@ labels:
   - instance:
       - instance_id: resource_id
       - status: resource_metadata['status']
+      # encodes the status of this metric in the value (the sample status is always 1)
+      - __value:  '{"shutoff": 1, "suspended": 2, "active": 3}.get(resource_metadata["status"], 0)'
+
+  - vcpus:
+      - instance_id: resource_id
+
+  - memory:
+      - instance_id: resource_id
