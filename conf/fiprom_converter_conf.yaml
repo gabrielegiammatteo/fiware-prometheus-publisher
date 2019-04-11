@@ -7,7 +7,7 @@ enabled:
   - 'cpu*'
   - 'disk.*'
   - 'memory.*'
-  - 'compute.node.cpu.percent'
+  - 'compute.node.*'
   - 'instance'
 
 
@@ -46,11 +46,12 @@ labels:
     - __grouping_key: '"resource_id".split(",")'
 
 
+
   - cpu*:
     # the instance_id label is used as key for the Instance Enricher (see ceilometer_fiprom/metric_enricherment.py)
     - instance_id: resource_id
 
-  - memory*:
+  - memory.*:
       - instance_id: resource_id
 
   - disk*:
@@ -66,9 +67,8 @@ labels:
     - ip_address: resource_metadata['floating_ip_address']
     - operation: resource_metadata['event_type']
 
-  - compute.node.cpu.percent:
-      - __value: resource_metadata['value']
-      - host: resource_metadata['host']
+  - compute.node.*:
+      - host: resource_id[:resource_id.index('_')]
 
   - instance:
       - instance_id: resource_id
