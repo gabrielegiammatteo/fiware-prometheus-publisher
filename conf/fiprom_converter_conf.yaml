@@ -48,10 +48,16 @@ labels:
     - __grouping_key: '"resource_id".split(",")'
 
 
+    # when possible (if the instance_id attribute is set) cache the metadata contained in the dimensions about the
+    # instance. This cache will be used to enrich metadata of other metrics that does not has it
+    - __cache_instance_metadata: "True"
 
   - cpu*:
     # the instance_id label is used as key for the Instance Enricher (see ceilometer_fiprom/metric_enricherment.py)
     - instance_id: resource_id
+
+  - memory:
+      - __cache_instance_metadata: "False"
 
   - memory.*:
       - instance_id: resource_id

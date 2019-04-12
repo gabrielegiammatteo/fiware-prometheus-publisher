@@ -128,7 +128,14 @@ class InstanceEnricher(LabelEnricher, FileConfiguration):
 
     def updateCache(self, metric):
 
-        if not 'instance_id' in metric.labels:
+        # the metric metadata is not associated to an instance, hence it does not contain any useful metadata
+        # to cache
+        if 'instance_id' not in metric.labels:
+            return
+
+        # in the converter configuration file it is explicitly set to skip this metric. For instance because
+        # it is known to contain wrong data (e.g. the "memory" metric contain a wrong host attribute)
+        if not metric.labels.get('__cache_instance_metadata', True):
             return
 
         cache_id = metric.labels['instance_id']
