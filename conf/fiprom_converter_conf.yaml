@@ -72,14 +72,14 @@ labels:
   - compute.node.*:
       - host: resource_id[:resource_id.index('_')]
 
-  # there are two differents metrics that have the name "instance", one created by the poller and one created by
-  # the nofication agent (triggered by an event). Only the former has the status attribute, the other one will be
+  # there are two different metrics that have the name "instance", one created by the poller and one created by
+  # the notification agent (triggered by an event). Only the former has the status attribute, the other one will be
   # dropped because an error will occur during the conversion
   - instance:
       - instance_id: resource_id
       - status: resource_metadata['status']
       # encodes the status of this metric in the value (the sample status is always 1)
-      - __value:  '{"shutoff": 1, "suspended": 2, "active": 3}.get(resource_metadata["status"], 0)'
+      - __value:  '{"shutoff": 1, "suspended": 2, "active": 3, "build": 4}.get(resource_metadata["status"], 0)'
 
   - vcpus:
       - instance_id: resource_id
