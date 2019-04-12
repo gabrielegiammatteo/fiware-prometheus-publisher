@@ -38,6 +38,9 @@ setup(
         ],
         'ceilometer.metering.storage': [
             'fiprom = ceilometer_fiprom.fiprom_storage:PrometheusStorage'
+        ],
+        'ceilometer.dispatcher': [
+            'fiprom = ceilometer_fiprom.fiprom_storage:PrometheusStorage'
         ]
     },
 

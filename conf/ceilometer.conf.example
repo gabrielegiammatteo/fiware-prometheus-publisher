@@ -6,8 +6,10 @@
 verbose = true
 debug = VAR_DEBUG
 use_stderr = true
-[database]
-metering_connection = fiprom://
+dispatcher = fiprom
+
+#[database]
+#metering_connection = fiprom://
 
 
 #

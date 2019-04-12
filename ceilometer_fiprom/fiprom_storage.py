@@ -105,3 +105,8 @@ class PrometheusStorage(Connection):
             self.__get_publisher().publish_samples(None, [s])
         except:
             traceback.print_exc(file=sys.stderr)
+
+    def record_events(self, events):
+        """Recording events interface."""
+        LOG.warning('Events recording not supported by Fiprom. Discarding events: %s', events)
+
