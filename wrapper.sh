@@ -33,7 +33,7 @@ if [ ! -e "${configFile}" ]; then
     sed -i "s|VAR_RABBITMQ_USER|${rabbitmqUser}|g" 	        ${configFile}
     sed -i "s|VAR_RABBITMQ_PASSWORD|${rabbitmqPassword}|g" 	${configFile}
     sed -i "s|VAR_METERING_SECRET|${meteringSecret}|g" 	    ${configFile}
-    sed -i "s|SERVER_PORT|${serverPort}|g"                  ${configFile}
+    sed -i "s|VAR_SERVER_PORT|${serverPort}|g"                  ${configFile}
     sed -i 's/VAR_.*//g'    ${configFile}
 
 fi
