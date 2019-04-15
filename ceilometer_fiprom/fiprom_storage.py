@@ -19,7 +19,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from ceilometer import sample
+from ceilometer import sample, dispatcher
 from ceilometer.storage.impl_log import Connection
 import traceback
 import sys
@@ -57,6 +57,24 @@ OPTS = [
 ]
 
 cfg.CONF.register_opts(OPTS, group="fiprom")
+
+
+class FipromDispatcher(dispatcher.Base):
+
+    _storage = None
+
+    def __init__(self, conf):
+        super(FipromDispatcher, self).__init__(conf)
+        self._storage = PrometheusStorage('')
+
+
+    def record_metering_data(self, data):
+        for i in data:
+            self._storage.record_metering_data(i)
+
+    def record_events(self, events):
+        LOG.warning('Events recording not supported by Fiprom. Discarding events: %s', events)
+
 
 class PrometheusStorage(Connection):
 
