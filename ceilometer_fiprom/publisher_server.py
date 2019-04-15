@@ -1,4 +1,6 @@
 import json
+import sys
+import traceback
 
 from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 from SocketServer import ThreadingMixIn
@@ -28,7 +30,11 @@ def process_request():
 
     while True:
         data = q.get()
-        publisher.record_metering_data(data)
+        try:
+            publisher.record_metering_data(data)
+        except:
+            traceback.print_exc(file=sys.stdout)
+
         q.task_done()
 
 
