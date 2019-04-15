@@ -2,24 +2,22 @@
 
 
 configDir="/etc/ceilometer"
+cacheDir="/var/cache/fiprom"
 configFile=${configFile:-"${configDir}/ceilometer.conf"}
-
+serverPort=${serverPort:-9099}
 debug=${fipromDebug:-"false"}
 pushGatewayUrl=${fipromPushGatewayUrl:-"http://localhost:9091/metrics/job/fiprom"}
 converterFile=${fipromConverterFile:-"${configDir}/fiprom-converter.yaml"}
 namesFile=${fipromNamesFile:-"/fiprom-names"}
 groupsFile=${fipromGroupsFile:-"/fiprom-groups"}
-cacheFile=${fipromCacheFile:-"/tmp/cache"}
+cacheFile=${fipromCacheFile:-"${cacheDir}/instances_cache"}
 staleTimeout=${fipromStaleTimeout:-3600}
 logFile=${fipromLogFile:-""}
-rabbitmqHost=${fipromRabbitMQHost:-""}
-rabbitmqUser=${fipromRabbitMQUser:-""}
-rabbitmqPassword=${fipromRabbitMQPassword:-""}
-meteringSecret=${fipromMeteringSecret:-""}
 
 
 if [ ! -e "${configFile}" ]; then
     mkdir -p ${configDir}
+    mkdir -p ${cacheDir}
     cp ceilometer.conf.example ${configFile}
 
     sed -i "s|VAR_DEBUG|${debug}|g"                         ${configFile}
@@ -34,7 +32,7 @@ if [ ! -e "${configFile}" ]; then
     sed -i "s|VAR_RABBITMQ_USER|${rabbitmqUser}|g" 	        ${configFile}
     sed -i "s|VAR_RABBITMQ_PASSWORD|${rabbitmqPassword}|g" 	${configFile}
     sed -i "s|VAR_METERING_SECRET|${meteringSecret}|g" 	    ${configFile}
-
+    sed -i "s|SERVER_PORT|${serverPort}|g"                  ${configFile}
     sed -i 's/VAR_.*//g'    ${configFile}
 
 fi
@@ -47,4 +45,4 @@ fi
 
 cat ${configFile}
 
-exec ceilometer-collector --config-file ${configFile}
+exec python -m ceilometer_fiprom.publisher_server --config-file ${configFile}

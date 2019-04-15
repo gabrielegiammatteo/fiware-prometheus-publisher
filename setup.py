@@ -40,7 +40,7 @@ setup(
             'fiprom = ceilometer_fiprom.fiprom_storage:PrometheusStorage'
         ],
         'ceilometer.dispatcher': [
-            'fiprom = ceilometer_fiprom.fiprom_storage:PrometheusStorage'
+            'fiprom = ceilometer_fiprom.fiprom_storage:FirpomDispatcher'
         ]
     },
 

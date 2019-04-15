@@ -6,8 +6,11 @@
 verbose = true
 debug = VAR_DEBUG
 use_stderr = true
-dispatcher = fiprom
 
+# uncomment to use fiprom as dispatcher
+#dispatcher = fiprom
+
+# uncomment to use fiprom as connection of the database dispatcher
 #[database]
 #metering_connection = fiprom://
 
@@ -23,7 +26,7 @@ names_file = VAR_NAMES_FILE
 tenant_group_file = VAR_GROUPS_FILE
 cache_file = VAR_CACHE_FILE
 stale_timeout = VAR_STALE_TIMEOUT
-
+server_port = VAR_SERVER_PORT
 # comment this to not produce the fiprom.log file (likely in production environment)
 log_file = VAR_LOG_FILE
 
