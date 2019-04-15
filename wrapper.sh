@@ -4,7 +4,7 @@
 configDir="/etc/ceilometer"
 cacheDir="/var/cache/fiprom"
 configFile=${configFile:-"${configDir}/ceilometer.conf"}
-serverPort=${serverPort:-9099}
+serverPort=${fipromServerPort:-9099}
 debug=${fipromDebug:-"false"}
 pushGatewayUrl=${fipromPushGatewayUrl:-"http://localhost:9091/metrics/job/fiprom"}
 converterFile=${fipromConverterFile:-"${configDir}/fiprom-converter.yaml"}
@@ -18,6 +18,7 @@ logFile=${fipromLogFile:-""}
 if [ ! -e "${configFile}" ]; then
     mkdir -p ${configDir}
     mkdir -p ${cacheDir}
+
     cp ceilometer.conf.example ${configFile}
 
     sed -i "s|VAR_DEBUG|${debug}|g"                         ${configFile}
