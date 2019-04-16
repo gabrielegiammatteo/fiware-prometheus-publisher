@@ -41,11 +41,11 @@ labels:
     - resource_id: resource_id
     - tenant_id: project_id
 
-
     # special label used to define the list of labels that will be used as grouping key publishing the metric on the
     # Push Gateway. Putting it simply, publishing a metric will override all previous metrics with the same name and
     # the same grouping key published before. Read more here: https://github.com/prometheus/pushgateway
     - __grouping_key: '"resource_id".split(",")'
+
 
 
     # when possible (if the instance_id attribute is set) cache the metadata contained in the dimensions about the
@@ -61,19 +61,23 @@ labels:
 
   - memory.*:
       - instance_id: resource_id
+      - running_only_metric: '1'
+      - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - disk*:
       - instance_id: resource_id
+      - running_only_metric: '1'
+      - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - disk.device.*:
     - instance_id: resource_id[:36]
+    - running_only_metric: '1'
+    - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - network.*:
     - instance_id: uuid4regex.search(resource_id).group(0)
-
-  - ip.floating:
-    - ip_address: resource_metadata['floating_ip_address']
-    - operation: resource_metadata['event_type']
+    - running_only_metric: '1'
+    - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - compute.node.*:
       - host: resource_id[:resource_id.index('_')]

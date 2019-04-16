@@ -12,11 +12,6 @@ from oslo_config import cfg
 from ceilometer import service
 from ceilometer_fiprom.fiprom_storage import PrometheusStorage
 
-q = Queue(maxsize=0)
-
-
-
-
 OPTS = [
     cfg.IntOpt('server_port',
                help='port where the fiprom server will be listning')
@@ -24,10 +19,12 @@ OPTS = [
 
 cfg.CONF.register_opts(OPTS, group="fiprom")
 
+
+q = Queue(maxsize=0)
+
+
 def process_request():
-
     publisher = PrometheusStorage("")
-
     while True:
         data = q.get()
         try:
