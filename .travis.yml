@@ -16,7 +16,7 @@ env:
 before_deploy:
   - version=$(sed -nE "s/version='(.*)'.*/\1/p" setup.py | tr -d '[:space:]')
   - docker pull "${IMAGE_NAME}:develop" || true
-  - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" .
+  - docker build --pull --cache-from "${IMAGE_NAME}:develop" --tag "$IMAGE_NAME" fiprom_collector_service
   - docker login -u "$REGISTRY_USER" -p "$REGISTRY_PASS"
   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:develop"
   - docker tag "$IMAGE_NAME" "${IMAGE_NAME}:${version}"
