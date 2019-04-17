@@ -55,44 +55,50 @@ labels:
   - cpu*:
     # the instance_id label is used as key for the Instance Enricher (see ceilometer_fiprom/metric_enricherment.py)
     - instance_id: resource_id
-
-  - memory:
-      - __cache_instance_metadata: "False"
+    - host_id: resource_metadata['host']
 
   - memory.*:
-      - instance_id: resource_id
-      - running_only_metric: '1'
-      - __grouping_key: '"resource_id,running_only_metric".split(",")'
+    - instance_id: resource_id
+    - host_id: resource_metadata['host']
+    - running_only_metric: '1'
+    - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - disk*:
-      - instance_id: resource_id
-      - running_only_metric: '1'
-      - __grouping_key: '"resource_id,running_only_metric".split(",")'
+    - instance_id: resource_id
+    - host_id: resource_metadata['host']
+    - running_only_metric: '1'
+    - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - disk.device.*:
     - instance_id: resource_id[:36]
+    - host_id: resource_metadata['host']
     - running_only_metric: '1'
     - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - network.*:
     - instance_id: uuid4regex.search(resource_id).group(0)
+    - host_id: resource_metadata['host']
     - running_only_metric: '1'
     - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
   - compute.node.*:
-      - host: resource_id[:resource_id.index('_')]
+    - host: resource_id[:resource_id.index('_')]
 
   # there are two different metrics that have the name "instance", one created by the poller and one created by
   # the notification agent (triggered by an event). Only the former has the status attribute, the other one will be
   # dropped because an error will occur during the conversion
   - instance:
-      - instance_id: resource_id
-      - status: resource_metadata['status']
-      # encodes the status of this metric in the value (the sample status is always 1)
-      - __value:  '{"build": 10, "shutoff": 20, "suspended": 30, "active": 100}.get(resource_metadata["status"], 0)'
+    - instance_id: resource_id
+    - host: resource_metadata['host']
+    - status: resource_metadata['status']
+    # encodes the status of this metric in the value (the sample status is always 1)
+    - __value:  '{"build": 10, "shutoff": 20, "suspended": 30, "active": 100}.get(resource_metadata["status"], 0)'
 
   - vcpus:
-      - instance_id: resource_id
+    - instance_id: resource_id
+    - host: resource_metadata['host']
 
   - memory:
-      - instance_id: resource_id
+    - instance_id: resource_id
+    - host: resource_metadata['host']
+    - __cache_instance_metadata: "False"
