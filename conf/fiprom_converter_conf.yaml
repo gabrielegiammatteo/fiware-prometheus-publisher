@@ -89,7 +89,7 @@ labels:
   # dropped because an error will occur during the conversion
   - instance:
     - instance_id: resource_id
-    - host: resource_metadata['host']
+    - host_id: resource_metadata['host']
     - status: resource_metadata['status']
     # encodes the status of this metric in the value (the sample status is always 1)
     - __value:  '{"build": 10, "shutoff": 20, "suspended": 30, "active": 100}.get(resource_metadata["status"], 0)'

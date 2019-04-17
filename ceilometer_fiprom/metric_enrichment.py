@@ -155,7 +155,8 @@ class InstanceEnricher(LabelEnricher, FileConfiguration):
                 'vcpus':    s.resource_metadata.get('vcpus', None),
                 'ram':      s.resource_metadata.get('memory_mb', None),
                 'disk':     s.resource_metadata.get('disk_gb', None),
-                'host_id':  s.resource_metadata.get('host', None)
+                'host_id':  metric.labels.get('host_id', None),
+                'host':     metric.labels.get('host', None)
             })
 
         self.cache[cache_id] = cache
