@@ -77,7 +77,6 @@ labels:
 
   - network.*:
     - instance_id: uuid4regex.search(resource_id).group(0)
-    - host_id: resource_metadata['host']
     - running_only_metric: '1'
     - __grouping_key: '"resource_id,running_only_metric".split(",")'
 
