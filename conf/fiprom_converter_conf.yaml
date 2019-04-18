@@ -12,6 +12,9 @@ enabled:
   - 'vcpus'
   - 'memory'
 
+  # fiware specific metrics
+  - 'region.*'
+
 
 # List of mapping rules to set labels of Prometheus metrics. Rules are organized in rule-sets that are applied only
 # if the name of the rule-set matches the name of the sample (see above comment). Rule-sets and rules are evaluated in
@@ -45,8 +48,6 @@ labels:
     # Push Gateway. Putting it simply, publishing a metric will override all previous metrics with the same name and
     # the same grouping key published before. Read more here: https://github.com/prometheus/pushgateway
     - __grouping_key: '"resource_id".split(",")'
-
-
 
     # when possible (if the instance_id attribute is set) cache the metadata contained in the dimensions about the
     # instance. This cache will be used to enrich metadata of other metrics that does not has it
@@ -101,3 +102,15 @@ labels:
     - instance_id: resource_id
     - host: resource_metadata['host']
     - __cache_instance_metadata: "False"
+
+
+  - region.*:
+      - ceilometer_version: resource_metadata['ceilometer_version']
+      - keystone_version: resource_metadata['keystone_version']
+      - neutron_version: resource_metadata['neutron_version']
+      - cinder_version: resource_metadata['cinder_version']
+      - nova_version: resource_metadata['nova_version']
+      - cpu_allocation_ratio: resource_metadata['cpu_allocation_ratio']
+      - ram_allocation_ratio: resource_metadata['ram_allocation_ratio']
+      - latitude: resource_metadata['latitude']
+      - longitude: resource_metadata['longitude']
