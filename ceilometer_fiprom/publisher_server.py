@@ -32,6 +32,7 @@ def process_request():
     while True:
         data = q.get()
         try:
+            LOG.debug('Processing request (%s left in the queue)', q.qsize())
             publisher.record_metering_data(data)
         except:
             traceback.print_exc(file=sys.stdout)
@@ -53,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
 
         jdata = json.loads(data)
         q.put(jdata)
-        LOG.debug('Requests in the queue: %s', q.qsize())
+        LOG.debug('Adding request (%s already in the queue)', q.qsize())
 
 
 

@@ -5,6 +5,10 @@
 [DEFAULT]
 verbose = true
 debug = VAR_DEBUG
+
+# do not append filename and line numebr in debug logs (enabled by default) to make logs more clear
+logging_debug_format_suffix=
+
 use_stderr = true
 
 # uncomment to use fiprom as dispatcher
