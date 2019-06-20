@@ -53,7 +53,7 @@ class Handler(BaseHTTPRequestHandler):
 
         jdata = json.loads(data)
         q.put(jdata)
-        log.debug('Requests in the queue: %s', q.qsize())
+        LOG.debug('Requests in the queue: %s', q.qsize())
 
 
 
