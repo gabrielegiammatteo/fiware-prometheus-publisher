@@ -12,6 +12,9 @@ from oslo_config import cfg
 from ceilometer import service
 from ceilometer_fiprom.fiprom_storage import PrometheusStorage
 
+from ceilometer.openstack.common import log
+LOG = log.getLogger(__name__)
+
 OPTS = [
     cfg.IntOpt('server_port',
                help='port where the fiprom server will be listning')
@@ -20,6 +23,7 @@ OPTS = [
 cfg.CONF.register_opts(OPTS, group="fiprom")
 
 
+# thread safe queue to keep requests to process
 q = Queue(maxsize=0)
 
 
@@ -49,6 +53,8 @@ class Handler(BaseHTTPRequestHandler):
 
         jdata = json.loads(data)
         q.put(jdata)
+        log.debug('Requests in the queue: %s', q.qsize())
+
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -57,12 +63,15 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 if __name__ == '__main__':
 
+    # load configuration
     service.prepare_service()
 
+    # set-up a thread for reading from the queue
     worker = threading.Thread(target=process_request)
     worker.setDaemon(True)
     worker.start()
 
+    # set-up the htt server
     port = cfg.CONF.fiprom.server_port
     server = ThreadedHTTPServer(('0.0.0.0', port), Handler)
     server.serve_forever()
