@@ -54,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
 
         jdata = json.loads(data)
         q.put(jdata)
-        LOG.debug('Adding request (%s already in the queue)', q.qsize())
+        LOG.debug('Adding request (%s already in the queue) [n.threads=%s]', q.qsize(), threading.activeCount())
 
 
 
